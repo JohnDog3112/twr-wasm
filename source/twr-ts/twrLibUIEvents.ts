@@ -121,7 +121,11 @@ export default class jsEventsLib extends twrLibrary {
       return intEventID;
    }
 
-
+   internalCreateMouseHandler(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, relative: boolean, element: HTMLElement) {
+      return (e: MouseEvent) => {
+         callingMod.postEvent(eventID, e.pageX, e.pageY);
+      }
+   }
    registerMouseMoveEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
       const elementID = callingMod.wasmMem.getString(elementIDPtr);
       const element = document.getElementById(elementID)!;
