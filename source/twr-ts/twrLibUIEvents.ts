@@ -38,7 +38,9 @@ export default class jsEventsLib extends twrLibrary {
       | [EventType.AnimationLoop] 
    )[] = [];
 
-   internalRegisterGlobalEvent(eventName: string, handler: (e: any) => void) {
+   //Generic setup comes from the typescript definition for addEventListener
+   //allows automatic mapping and type checking for the event name vs. the event type in the handler function
+   internalRegisterGlobalEvent<K extends keyof HTMLElementEventMap>(eventName: K, handler: (ev: HTMLElementEventMap[K]) => void) {
       const eventID = this.nextEventID++;
       
       this.events[eventID] = [EventType.Global, eventName, handler];
@@ -48,7 +50,7 @@ export default class jsEventsLib extends twrLibrary {
       return eventID;
    }
 
-   internalRegisterLocalEvent(element: HTMLElement, eventName: string, handler: (e: any) => void) {
+   internalRegisterLocalEvent<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any) {
       const eventID = this.nextEventID++;
 
       this.events[eventID] = [EventType.Local, element, eventName, handler];
@@ -121,28 +123,53 @@ export default class jsEventsLib extends twrLibrary {
       return intEventID;
    }
 
-   internalCreateMouseHandler(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, relative: boolean, element: HTMLElement) {
-      return (e: MouseEvent) => {
-         callingMod.postEvent(eventID, e.pageX, e.pageY);
-      }
+   registerGlobalMouseMoveEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
+      return this.internalRegisterGlobalEvent(
+         'mousemove',
+         (e: MouseEvent) => {
+            callingMod.postEvent(eventID, e.pageX, e.pageY);
+         }
+      )
    }
-   registerMouseMoveEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
-      const elementID = callingMod.wasmMem.getString(elementIDPtr);
-      const element = document.getElementById(elementID)!;
 
-      if (element == null) throw new Error("registerMouseEvent was given a non-existant element ID!");
-      
-      if (relative) {
-         const x_off = element.offsetLeft;
-         const y_off = element.offsetTop;
-         element.addEventListener('mousemove', (e) => {
-            callingMod.postEvent(eventID, e.clientX - x_off, e.clientY - y_off);
-         });
-      } else {
-         element.addEventListener('mousemove', (e) => {
-            callingMod.postEvent(eventID, e.clientX, e.clientY);
-         });
+   internalGetMouseOffset(element: HTMLElement, relative: boolean): [number, number] {
+      //if it isn't relative, offset by 0
+      if (!relative) {
+         return [0, 0];
       }
+
+      const rect = element.getBoundingClientRect();
+
+      //get absolute offsets in reference to the entire page
+      const x_off = rect.left + window.scrollX;
+      const y_off = rect.top + window.scrollY;
+
+      return [x_off, y_off];
+   }
+
+   registerLocalMouseMoveEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
+      const element = this.internalGetElementByID(callingMod, elementIDPtr, "registerLocalMouseMoveEvent");
+      
+      const [x_off, y_off] = this.internalGetMouseOffset(element, relative);
+
+      return this.internalRegisterLocalEvent(
+         element,
+         'mousemove',
+         (e) => {
+            callingMod.postEvent(eventID, e.pageX - x_off, e.pageY - y_off);
+         }
+      )
+   }
+
+   // internalRegisterMouseButtonEvent(callingMod:IWasmModule|IWasmModuleAsync)
+
+   registerGlobalMousePressEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
+      return this.internalRegisterGlobalEvent(
+         'mousedown',
+         (e) => {
+            
+         }
+      )
    }
 
    registerMousePressEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
