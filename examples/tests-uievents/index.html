@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Audio Tests</title>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "twr-wasm": "../../lib-js/index.js"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="twr_iodiv"></div>
+
+        <script type="module">
+            "use strict";
+            
+            import {twrWasmModule, twrWasmModuleAsync} from "twr-wasm";
+            import eventTester from "./eventTester.js";
+
+            new eventTester;
+
+            const is_async = window.location.hash=="#async";
+
+            const mod = is_async ? new twrWasmModuleAsync() : new twrWasmModule();
+            await mod.loadWasm("./tests-uievents.wasm");
+
+
+        </script>
+    </body>
+</html>
