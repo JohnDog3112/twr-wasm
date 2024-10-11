@@ -261,6 +261,7 @@ export default class jsEventsLib extends twrLibrary {
    }
 
    stopUIEvent(callingMod:IWasmModule|IWasmModuleAsync, eventHandlerID: number) {
+      console.log(this.events);
       if (!(eventHandlerID in this.events)) throw new Error(`stop event was given an invalid eventHandlerID (${eventHandlerID})!`);
       const eventHandler = this.events[eventHandlerID];
 
@@ -293,6 +294,7 @@ export default class jsEventsLib extends twrLibrary {
 
    stopAllUIEvents(callingMod:IWasmModule|IWasmModuleAsync) {
       for (const eventHandlerID of this.events.keys()) {
+         if (this.events[eventHandlerID] == undefined) continue;
          this.stopUIEvent(callingMod, eventHandlerID);
       }
    }

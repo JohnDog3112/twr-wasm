@@ -18,7 +18,7 @@
             "use strict";
             
             import {twrWasmModule, twrWasmModuleAsync} from "twr-wasm";
-            import eventTester from "./eventTester.js";
+            import eventTester from "./out/eventTester.js";
 
             new eventTester;
 
@@ -27,6 +27,7 @@
             const mod = is_async ? new twrWasmModuleAsync() : new twrWasmModule();
             await mod.loadWasm("./tests-uievents.wasm");
 
+            await mod.callC(["runTests"]);
 
         </script>
     </body>

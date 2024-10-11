@@ -10,6 +10,8 @@ import twrLibAudio from "./twrlibaudio.js";
 import twrLibDateMod from "./twrlibdate.js"
 import twrConsoleDummy from "./twrcondummy.js"
 
+import twrLibUiEvents from "./twrlibuievents.js";
+
 // currently, libraries can only have one instance
 let defaultLibsAreRegistered=false;
 
@@ -23,6 +25,8 @@ export async function twrLibBuiltIns() {
       new twrLibAudio;
       new twrLibDateMod;
       new twrConsoleDummy;
+
+      new twrLibUiEvents;
 
       defaultLibsAreRegistered=true;
    }
