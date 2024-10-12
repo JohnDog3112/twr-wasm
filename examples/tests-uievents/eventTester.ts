@@ -23,14 +23,19 @@ export default class clearIODivLib extends twrLibrary {
    }
 
    internalSendGlobalEvent(event: Event) {
-      document.dispatchEvent(event);
+      //add timeout, otherwise event callbacks are *immediately* called
+      setTimeout(() => {
+         document.dispatchEvent(event);
+      }, 10);
    }
    internalSendLocalEvent(mod:IWasmModule|IWasmModuleAsync, event: Event, elementIDPtr: number, rootFuncName: string) {
       const elementID = mod.wasmMem.getString(elementIDPtr);
       const elem = document.getElementById(elementID);
       if (!elem) throw new Error(`${rootFuncName} was given an invalid element ID (${elementID})!`);
 
-      elem.dispatchEvent(event);
+      setTimeout(() => {
+         elem.dispatchEvent(event);
+      }, 10);
    }
 
    sendGlobalKeyboardEvent(mod:IWasmModule|IWasmModuleAsync, eventNamePtr: number, keyPtr: number) {
