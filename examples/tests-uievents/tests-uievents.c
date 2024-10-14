@@ -10,7 +10,7 @@ void send_local_keyboard_event(const char* event_name, const char* key, const ch
 __attribute__((import_name("sendGlobalMouseEvent")))
 void send_global_mouse_event(const char* event_name, double page_x, double page_y);
 __attribute__((import_name("sendLocalMouseEvent")))
-void send_local_mouse_event(const char* event_name, double page_x, double page_y, const char* element_id);
+void send_local_mouse_event(const char* event_name, double page_x, double page_y, const char* element_id, int relative);
 __attribute__((import_name("sendGlobalWheelEvent")))
 void send_global_wheel_event(const char* event_name, double delta_x, double delta_y, double delta_z, long delta_mode);
 __attribute__((import_name("sendLocalWheelEvent")))
@@ -18,6 +18,7 @@ void send_local_wheel_event(const char* event_name, double delta_x, double delta
 
 
 int CURRENT_TEST = 0;
+int TOTAL_FAILURES = 0;
 void run_next_test();
 
 enum EventType {
@@ -33,13 +34,13 @@ enum EventType {
    WHEEL,
 };
 
-const char* EVENT_NAMES[10] = {
+const char* EVENT_NAMES[20] = {
    "keyup",
    "keydown",
 
    "mousemove",
    "mouseup",
-   "mousedown"
+   "mousedown",
    "click",
    "dblclick",
 
@@ -80,31 +81,36 @@ enum Locality {
    GLOBAL
 };
 
+struct LocalArgsBase {
+   //only case supposed_to_timeout is used for
+   // is when element_id != element2_id to ensure locality
+   // so element2_id only needs to be specified when
+   // supposed_to_timeout = true
+   long supposed_to_timeout;
+   char* element_id;
+   char* element2_id;
+   void* extra;
+};
+
 struct EventBase {
    long timeout;
-   long supposed_to_timeout;
    enum EventType event_type;
    enum Locality locality;
    void* args;
-   void* local_args;
+   struct LocalArgsBase local_args;
 };
 
 struct KeyboardEventArgs {
    const char* key;
    long key_code;
 };
-struct LocalKeyboardEventArgs {
-   char* element_id;
-};
 
 struct MouseEventArgs {
-   double page_x;
-   double page_y;
+   double x;
+   double y;
 };
-struct LocalMouseEventArgs {
-   char* element_id;
+struct MouseEventExtraLocalArgs {
    int relative;
-   double local_x, local_y;
 };
 
 struct WheelEventArgs {
@@ -113,17 +119,14 @@ struct WheelEventArgs {
    double delta_z;
    long delta_mode;
 };
-struct LocalWheelEventArgs {
-   char* element_id;
-};
 
 
-#define NUM_EVENTS 3
+#define NUM_EVENTS 43
 
 struct EventBase events[NUM_EVENTS] = {
+   //Global KEY_DOWN
    {
       .timeout = 1000,
-      .supposed_to_timeout = 0,
       .event_type = KEY_DOWN,
       .locality = GLOBAL,
       .args = (void*) &(struct KeyboardEventArgs){
@@ -133,7 +136,6 @@ struct EventBase events[NUM_EVENTS] = {
    },
    {
       .timeout = 1000,
-      .supposed_to_timeout = 0,
       .event_type = KEY_DOWN,
       .locality = GLOBAL,
       .args = (void*) &(struct KeyboardEventArgs){
@@ -143,14 +145,597 @@ struct EventBase events[NUM_EVENTS] = {
    },
    {
       .timeout = 1000,
-      .supposed_to_timeout = 0,
       .event_type = KEY_DOWN,
       .locality = GLOBAL,
       .args = (void*) &(struct KeyboardEventArgs){
          .key = "Backspace",
          .key_code = 8
       }
-   }
+   },
+   //local KEY_DOWN success
+   {
+      .timeout = 1000,
+      .event_type = KEY_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct KeyboardEventArgs){
+         .key = "a",
+         .key_code = 'a'
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = KEY_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct KeyboardEventArgs){
+         .key = "g",
+         .key_code = 'g'
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = KEY_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct KeyboardEventArgs){
+         .key = "Backspace",
+         .key_code = 8
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+   //keydown fail
+   {
+      .timeout = 100,
+      .event_type = KEY_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct KeyboardEventArgs){
+         .key = "a",
+         .key_code = 'a'
+      },
+      .local_args =  {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_1",
+         .element2_id = "test_div_2",
+      }
+   },
+
+   //keyup global
+   {
+      .timeout = 1000,
+      .event_type = KEY_UP,
+      .locality = GLOBAL,
+      .args = (void*) &(struct KeyboardEventArgs) {
+         .key = "a",
+         .key_code = 'a'
+      },
+   },
+   //keyup local
+   {
+      .timeout = 1000,
+      .event_type = KEY_UP,
+      .locality = LOCAL,
+      .args = (void*) &(struct KeyboardEventArgs) {
+         .key = "a",
+         .key_code = 'a'
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+   //keyup fail
+   {
+      .timeout = 100,
+      .event_type = KEY_UP,
+      .locality = LOCAL,
+      .args = (void*) &(struct KeyboardEventArgs) {
+         .key = "a",
+         .key_code = 'a'
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_1",
+         .element2_id = "test_div_2"
+      }
+   },
+
+
+   //------- MOUSE EVENTS -------
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 54.0,
+         .y = 753.0,
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 6756.0,
+         .y = 5334.0,
+      }
+   },
+   //mouse_move non-relative local
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 54.0,
+         .y = 753.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 6756.0,
+         .y = 5334.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   //mouse_move relative local
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 54.0,
+         .y = 753.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 6756.0,
+         .y = 5334.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   //mouse_move locality test (should fail)
+   {
+      .timeout = 100,
+      .event_type = MOUSE_MOVE,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 1233.0,
+         .y = 23454.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_2",
+         .element2_id = "test_div_1",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1,
+         }
+      }
+   },
+
+   //mouse_down
+   {  //global
+      .timeout = 1000,
+      .event_type = MOUSE_UP,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      }
+   },
+   {  //non-relative local
+      .timeout = 1000,
+      .event_type = MOUSE_UP,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   {  //relative local
+      .timeout = 1000,
+      .event_type = MOUSE_UP,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   {  //locality test (should fail)
+      .timeout = 100,
+      .event_type = MOUSE_UP,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 1233.0,
+         .y = 23454.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_2",
+         .element2_id = "test_div_1",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1,
+         }
+      }
+   },
+
+   //mouse_down
+   {  //global
+      .timeout = 1000,
+      .event_type = MOUSE_DOWN,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      }
+   },
+   {  //non-relative local
+      .timeout = 1000,
+      .event_type = MOUSE_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   {  //relative local
+      .timeout = 1000,
+      .event_type = MOUSE_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   {  //locality test (should fail)
+      .timeout = 100,
+      .event_type = MOUSE_DOWN,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 1233.0,
+         .y = 23454.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_2",
+         .element2_id = "test_div_1",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1,
+         }
+      }
+   },
+
+   //mouse_click
+   {  //global
+      .timeout = 1000,
+      .event_type = MOUSE_CLICK,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      }
+   },
+   {  //non-relative local
+      .timeout = 1000,
+      .event_type = MOUSE_CLICK,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   {  //relative local
+      .timeout = 1000,
+      .event_type = MOUSE_CLICK,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   {  //locality test (should fail)
+      .timeout = 100,
+      .event_type = MOUSE_CLICK,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 1233.0,
+         .y = 23454.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_2",
+         .element2_id = "test_div_1",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1,
+         }
+      }
+   },
+
+   //mouse_double_click
+   {  //global
+      .timeout = 1000,
+      .event_type = MOUSE_DOUBLE_CLICK,
+      .locality = GLOBAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      }
+   },
+   {  //non-relative local
+      .timeout = 1000,
+      .event_type = MOUSE_DOUBLE_CLICK,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 0
+         }
+      }
+   },
+   {  //relative local
+      .timeout = 1000,
+      .event_type = MOUSE_DOUBLE_CLICK,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 500.0,
+         .y = 1040.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_2",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1
+         }
+      }
+   },
+   {  //locality test (should fail)
+      .timeout = 100,
+      .event_type = MOUSE_DOUBLE_CLICK,
+      .locality = LOCAL,
+      .args = (void*) &(struct MouseEventArgs) {
+         .x = 1233.0,
+         .y = 23454.0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_2",
+         .element2_id = "test_div_1",
+         .extra = (void*) &(struct MouseEventExtraLocalArgs) {
+            .relative = 1,
+         }
+      }
+   },
+
+
+   //------WHEEL EVENTS------
+   
+   //Global
+   {
+      .timeout = 1000,
+      .event_type = WHEEL,
+      .locality = GLOBAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 100.0,
+         .delta_y = 150.0,
+         .delta_z = 503.0,
+         .delta_mode = 0,
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = WHEEL,
+      .locality = GLOBAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 434.0,
+         .delta_y = 5682.0,
+         .delta_z = 953.0,
+         .delta_mode = 1,
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = WHEEL,
+      .locality = GLOBAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 19234.0,
+         .delta_y = 241.0,
+         .delta_z = 54234.0,
+         .delta_mode = 2,
+      }
+   },
+
+   //Local
+   {
+      .timeout = 1000,
+      .event_type = WHEEL,
+      .locality = LOCAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 100.0,
+         .delta_y = 150.0,
+         .delta_z = 503.0,
+         .delta_mode = 0,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = WHEEL,
+      .locality = LOCAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 434.0,
+         .delta_y = 5682.0,
+         .delta_z = 953.0,
+         .delta_mode = 1,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+   {
+      .timeout = 1000,
+      .event_type = WHEEL,
+      .locality = LOCAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 19234.0,
+         .delta_y = 241.0,
+         .delta_z = 54234.0,
+         .delta_mode = 2,
+      },
+      .local_args = {
+         .supposed_to_timeout = 0,
+         .element_id = "test_div_1"
+      }
+   },
+
+   //Locality test (should fail)
+   {
+      .timeout = 100,
+      .event_type = WHEEL,
+      .locality = LOCAL,
+      .args = (void*) &(struct WheelEventArgs) {
+         .delta_x = 19234.0,
+         .delta_y = 241.0,
+         .delta_z = 54234.0,
+         .delta_mode = 2,
+      },
+      .local_args = {
+         .supposed_to_timeout = 1,
+         .element_id = "test_div_1",
+         .element2_id = "test_div_2"
+      }
+   },
 };
 //state variables
 struct EventHandlerStateVariables {
@@ -185,37 +770,85 @@ void print_keycode(long key_code) {
       printf("%ld", key_code);
    }
 }
+
+void print_event_message_start(struct EventBase* event) {
+   const char* event_name = EVENT_NAMES[event->event_type];
+   
+   if (event->locality == GLOBAL) {
+      printf("Global %s ", event_name);
+   } else if (event->local_args.supposed_to_timeout) {
+      printf("Local (%s, %s) %s ", event->local_args.element_id, event->local_args.element2_id, event_name);
+   } else {
+      printf("Local (%s) %s ", event->local_args.element_id, event_name);
+   }
+
+   switch (event->event_type) {
+      case KEY_DOWN:
+      case KEY_UP:
+      {
+         struct KeyboardEventArgs* args = (struct KeyboardEventArgs*)event->args;
+         printf("(%s) event", args->key);
+      }
+      break;
+
+      case MOUSE_MOVE:
+      case MOUSE_UP:
+      case MOUSE_DOWN:
+      case MOUSE_CLICK:
+      case MOUSE_DOUBLE_CLICK:
+      {
+         struct MouseEventArgs* args = (struct MouseEventArgs*)event->args;
+         if (event->locality == LOCAL) {
+            struct MouseEventExtraLocalArgs* local_mouse = (struct MouseEventExtraLocalArgs*)event->local_args.extra;
+            if (local_mouse->relative) {
+               printf("(Relative) ");
+            }
+         }
+         printf("(%f, %f) event", args->x, args->y);
+      }
+      break;
+
+      case WHEEL:
+      {
+         struct WheelEventArgs* args = (struct WheelEventArgs*)event->args;
+         printf("(%f, %f, %f, %ld) event", args->delta_x, args->delta_y, args->delta_z, args->delta_mode);
+         
+      }
+      break;
+   }
+   
+   if (event->locality == LOCAL && event->local_args.supposed_to_timeout) {
+      printf(" (should fail): ");
+   } else {
+      printf(": ");
+   }
+
+}
 __attribute__((export_name("keyboardEventHandler")))
 void keyboard_event_handler(int event_id, long key_code) {
    if (event_id != EVENT_HANDLER.keyboard_event_id) return;
    //disable timeout
    EVENT_HANDLER.timeout_event_id = -1;
 
-   struct EventBase* event = (struct EventBase*) &events[EVENT_HANDLER.current_event];
-   assert(KEY_UP <= event->event_type <= KEY_DOWN);
+   struct EventBase* event = &events[EVENT_HANDLER.current_event];
+   assert(KEY_UP <= event->event_type && event->event_type <= KEY_DOWN);
    struct KeyboardEventArgs* args = (struct KeyboardEventArgs*)event->args;
 
-   const char* event_name = EVENT_NAMES[event->event_type];
+   print_event_message_start(event);
 
-   if (event->locality == GLOBAL) {
-      printf("Global %s (%s) event", event_name, args->key);
-   } else {
-      struct LocalKeyboardEventArgs* local_args = (struct LocalKeyboardEventArgs*)event->local_args;
-      printf("Local (%s) %s (%s) event", local_args->element_id, event_name, args->key);
-   }
-
-   if (event->supposed_to_timeout) {
-      printf(" (should fail): didn't fail! Expected a timeout, got ");
+   if (event->locality == LOCAL && event->local_args.supposed_to_timeout) {
+      TOTAL_FAILURES++;
+      printf("didn't fail! Expected a timeout, got ");
       print_keycode(key_code);
       printf("!\n");
       run_next_event();
       return;
    }
-   printf(": ");
 
    if (key_code == args->key_code) {
       printf("was successfull!\n");
    } else {
+      TOTAL_FAILURES++;
       printf("failed! Expected ");
       print_keycode(args->key_code);
       printf(" got ");
@@ -227,18 +860,97 @@ void keyboard_event_handler(int event_id, long key_code) {
 }
 
 __attribute__((export_name("mouseEventHandler")))
-void mouse_event_handler(int event_id, long page_x, long page_y) {
+void mouse_event_handler(int event_id, double x, double y) {
    if (event_id != EVENT_HANDLER.mouse_event_id) return;
+
+   //disable timeout
+   EVENT_HANDLER.timeout_event_id = -1;
+
+   struct EventBase* event = &events[EVENT_HANDLER.current_event];
+   assert(MOUSE_MOVE <= event->event_type && event->event_type <= MOUSE_DOUBLE_CLICK);
+
+   struct MouseEventArgs* args = (struct MouseEventArgs*)event->args;
+
+   print_event_message_start(event);
+
+   if (event->locality == LOCAL && event->local_args.supposed_to_timeout) {
+      TOTAL_FAILURES++;
+      printf("failed to timeout!\n");
+      run_next_event();
+      return;
+   }
+
+
+   if (args->x == x && args->y == y) {
+      printf("was successful!\n");
+   } else {
+      TOTAL_FAILURES++;
+      printf("failed! Expected (%f, %f) got (%f, %f)\n", args->x, args->y, x, y);
+   }
+   run_next_event();
 }
 
 __attribute__((export_name("wheelEventHandler")))
-void wheel_event_handler(int event_id, long delta_x, long delta_y, long delta_z, long delta_mode) {
+void wheel_event_handler(int event_id, double delta_x, double delta_y, double delta_z, long delta_mode) {
    if (event_id != EVENT_HANDLER.wheel_event_id) return;
+
+   //disable timeout
+   EVENT_HANDLER.timeout_event_id = -1;
+
+   struct EventBase* event = &events[EVENT_HANDLER.current_event];
+   assert(WHEEL == event->event_type);
+
+   struct WheelEventArgs* args = (struct WheelEventArgs*)event->args;
+   
+   print_event_message_start(event);
+
+   if (event->locality == LOCAL && event->local_args.supposed_to_timeout) {
+      printf("failed to timeout!\n");
+      TOTAL_FAILURES++;
+      run_next_event();
+      return;
+   }
+
+   if (
+      delta_x == args->delta_x && delta_y == args->delta_y
+      && delta_z == args->delta_z && delta_mode == args->delta_mode
+   ) {
+      printf("was successful!\n");
+   } else {
+      TOTAL_FAILURES++;
+      printf(
+         "failed! Expected (%f, %f, %f, %ld) got (%f, %f, %f, %ld)\n",
+         args->delta_x, args->delta_y, args->delta_z, args->delta_mode,
+         delta_x, delta_y, delta_z, delta_mode   
+      );
+   }
+   run_next_event();
 }
 
 __attribute__((export_name("timeoutEventHandler")))
 void timeout_event_handler(int event_id) {
    if (event_id != EVENT_HANDLER.timeout_event_id) return;
+
+   //stop all other events
+   EVENT_HANDLER.keyboard_event_id = -1;
+   EVENT_HANDLER.mouse_event_id = -1;
+   EVENT_HANDLER.wheel_event_id = -1;
+   EVENT_HANDLER.timeout_event_id = -1;
+
+   struct EventBase* event = (struct EventBase*) &events[EVENT_HANDLER.current_event];
+
+   print_event_message_start(event);
+
+   if (event->locality == LOCAL && event->local_args.supposed_to_timeout) {
+      printf("successfully failed!\n");
+      run_next_event();
+      return;
+   }
+
+   TOTAL_FAILURES++;
+   printf("failed (timed out)!\n");
+   run_next_event();
+   return;
 }
 void run_next_event() {
    //bring current_event up, that way everytime run_next_event is called
@@ -253,7 +965,7 @@ void run_next_event() {
 
    if (EVENT_HANDLER.current_event >= NUM_EVENTS) {
       reset_event_handler();
-      // run_next_test();
+      run_next_test();
       return;
    }
 
@@ -275,12 +987,12 @@ void run_next_event() {
             );
             send_global_keyboard_event(event_name, args->key);
          } else {
-            struct LocalKeyboardEventArgs* local_args = (struct LocalKeyboardEventArgs*)event->local_args;
             LOCAL_KEYBOARD_REGISTER_FUNCS[event->event_type - KEY_UP](
                EVENT_HANDLER.keyboard_event_id,
-               local_args->element_id
+               //if it's supposed_to_timeout, watch the event on element2 so it *should* fail if it's properly local
+               event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id
             );
-            send_local_keyboard_event(event_name, args->key, local_args->element_id);
+            send_local_keyboard_event(event_name, args->key, event->local_args.element_id);
          }
       }
       break;
@@ -290,11 +1002,58 @@ void run_next_event() {
       case MOUSE_DOWN:
       case MOUSE_CLICK:
       case MOUSE_DOUBLE_CLICK:
-      EVENT_HANDLER.mouse_event_id = twr_register_callback("mouseEventHandler");
+      {
+         struct MouseEventArgs* args = (struct MouseEventArgs*)event->args;
+         EVENT_HANDLER.mouse_event_id = twr_register_callback("mouseEventHandler");
+         if (event->locality == GLOBAL) {
+            GLOBAL_MOUSE_REGISTER_FUNCS[event->event_type - MOUSE_MOVE](
+               EVENT_HANDLER.mouse_event_id
+            );
+            send_global_mouse_event(event_name, args->x, args->y);
+         } else {
+            struct MouseEventExtraLocalArgs* local_mouse = (struct MouseEventExtraLocalArgs*)event->local_args.extra;
+            LOCAL_MOUSE_REGISTER_FUNCS[event->event_type - MOUSE_MOVE](
+               EVENT_HANDLER.mouse_event_id,
+               //if it's supposed_to_timeout, watch the event on element2 so it *should* fail if it's properly local
+               event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id,
+               local_mouse->relative
+            );
+            send_local_mouse_event(
+               event_name,
+               args->x, args->y,
+               event->local_args.element_id, local_mouse->relative
+            );
+         }
+      }
       break;
 
       case WHEEL:
-      EVENT_HANDLER.mouse_event_id = twr_register_callback("wheelEventHandler");
+      {
+         struct WheelEventArgs* args = (struct WheelEventArgs*)event->args;
+         EVENT_HANDLER.wheel_event_id = twr_register_callback("wheelEventHandler");
+
+         if (event->locality == GLOBAL) {
+            register_global_wheel_event(
+               EVENT_HANDLER.wheel_event_id
+            );
+            send_global_wheel_event(
+               event_name,
+               args->delta_x, args->delta_y,
+               args->delta_z, args->delta_mode
+            );
+         } else {
+            register_local_wheel_event(
+               EVENT_HANDLER.wheel_event_id,
+               event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id
+            );
+            send_local_wheel_event(
+               event_name,
+               args->delta_x, args->delta_y,
+               args->delta_z, args->delta_mode,
+               event->local_args.element_id
+            );
+         }
+      }
       break;
 
       default:
@@ -390,6 +1149,12 @@ void run_next_test() {
       {
          reset_event_handler();
          run_next_event();
+      }
+      break;
+
+      default:
+      {
+         printf("Finished with %d failures!\n", TOTAL_FAILURES);
       }
       break;
    }

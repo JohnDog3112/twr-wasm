@@ -68,20 +68,30 @@ export default class clearIODivLib extends twrLibrary {
          new MouseEvent(
             mod.wasmMem.getString(eventNamePtr),
             {
-               screenX: pageX - window.scrollX,
-               screenY: pageY - window.scrollY
+               clientX: pageX - window.scrollX,
+               clientY: pageY - window.scrollY
             }
          )
       )
    }
-   sendLocalMouseEvent(mod:IWasmModule|IWasmModuleAsync, eventNamePtr: number, pageX: number, pageY: number, elementIDPtr: number) {
+   sendLocalMouseEvent(mod:IWasmModule|IWasmModuleAsync, eventNamePtr: number, pageX: number, pageY: number, elementIDPtr: number, relative: boolean) {
+      let [x_off, y_off] = [0, 0];
+      if (relative) {
+         const elementID = mod.wasmMem.getString(elementIDPtr);
+         const elem = document.getElementById(elementID);
+         if (!elem) throw new Error(`sendLocalMouseEvent was given an invalid element ID (${elementID})!`);
+
+         const rect = elem.getBoundingClientRect();
+         x_off = rect.left + window.scrollX;
+         y_off = rect.top + window.scrollY;
+      }
       this.internalSendLocalEvent(
          mod,
          new MouseEvent(
             mod.wasmMem.getString(eventNamePtr),
             {
-               screenX: pageX - window.scrollX,
-               screenY: pageY - window.scrollY
+               clientX: pageX - window.scrollX + x_off,
+               clientY: pageY - window.scrollY + y_off
             }
          ),
          elementIDPtr,
