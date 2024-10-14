@@ -106,8 +106,6 @@ export default class twrLibAudio extends twrLibrary {
 
          for (let i = 0; i < singleChannelDataLen; i++) {
             //convert 8-bit PCM to float
-            //data is signed, so it will also need to find the negatives
-            // channelBuff[i] = dataBuff[i] > 127 ? (dataBuff[i] - 256)/128 : dataBuff[i]/128;
             channelBuff[i] = dataBuff[i]/128;
          }
       }
@@ -126,7 +124,6 @@ export default class twrLibAudio extends twrLibrary {
 
          for (let i = 0; i < singleChannelDataLen*2; i += 2) {
             //convert 16-bit PCM to float
-            // channelBuff[i] = dataBuff[i] > 32767 ? (dataBuff[i] - 65536)/32768 : dataBuff[i]/32768;
             channelBuff[i] = dataBuff[i]/32768;
          }
       }
@@ -145,7 +142,6 @@ export default class twrLibAudio extends twrLibrary {
 
          for (let i = 0; i < singleChannelDataLen; i++) {
             //convert 32-bit PCM to float
-            // channelBuff[i] = dataBuff[i] > 2147483647 ? (dataBuff[i] - 4294967296)/2147483648 : dataBuff[i]/2147483648;
             channelBuff[i] = dataBuff[i]/2147483648;
          }
       }
