@@ -751,7 +751,7 @@ void test_case(int id, bool first_run) {
          d2d_putimagedata(ds, 350, 250, 250);
          d2d_releaseid(ds, 350);
 
-         test_img_hash(ds, first_run, test_strs[id], 0x0000000);
+         test_img_hash(ds, first_run, test_strs[id], 0x91E0A8C7);
       }
       break;
 
