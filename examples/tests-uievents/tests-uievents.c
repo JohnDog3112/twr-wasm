@@ -1136,6 +1136,69 @@ void test_key_press_and_stop_event() {
 }
 
 
+// ---------- Animation Loop Tester ----------
+
+const int TOTAL_ANIMATION_LOOPS = 50;
+const int ANIMATION_LOOP_TIMEOUT = 1000;
+struct AnimationLoopTester {
+   long cycles;
+   int animation_event_id;
+   int timeout_event_id;
+};
+struct AnimationLoopTester ANIMATION_LOOP_STATE = {
+   .cycles = 0,
+   .animation_event_id = -1,
+   .timeout_event_id = -1,
+};
+
+__attribute__((export_name("AnimationLoopTimeoutHandler")))
+void animation_loop_timeout_handler(int event_id) {
+   if (event_id != ANIMATION_LOOP_STATE.timeout_event_id) return;
+
+   printf("timed out!\n");
+   //turn off events
+   ANIMATION_LOOP_STATE.animation_event_id = -1;
+   ANIMATION_LOOP_STATE.timeout_event_id = -1;
+
+   //run next test
+   run_next_test();
+}
+__attribute__((export_name("AnimationLoopHandler")))
+void animation_loop_handler(int eventID, long time) {
+   if (eventID != ANIMATION_LOOP_STATE.animation_event_id) return;
+
+   printf("%ld, ", TOTAL_ANIMATION_LOOPS - ANIMATION_LOOP_STATE.cycles);
+
+   ANIMATION_LOOP_STATE.cycles++;
+   if (ANIMATION_LOOP_STATE.cycles >= TOTAL_ANIMATION_LOOPS) {
+      printf("Succesfully Finished!\n");
+
+      //turn off events
+      ANIMATION_LOOP_STATE.animation_event_id = -1;
+      ANIMATION_LOOP_STATE.timeout_event_id = -1;
+
+      //run next test
+      run_next_test();
+   } else {
+      //reset timeout
+      ANIMATION_LOOP_STATE.timeout_event_id = twr_register_callback("AnimationLoopTimeoutHandler");
+      twr_timer_single_shot(ANIMATION_LOOP_TIMEOUT, ANIMATION_LOOP_STATE.timeout_event_id);
+   }
+}
+void animation_loop_test_start() {
+   ANIMATION_LOOP_STATE.cycles = 0;
+   ANIMATION_LOOP_STATE.animation_event_id = -1;
+   ANIMATION_LOOP_STATE.timeout_event_id = -1;
+
+   printf("Animation Loop Test: ");
+   //start test
+   ANIMATION_LOOP_STATE.animation_event_id = twr_register_callback("AnimationLoopHandler");
+   register_animation_loop(ANIMATION_LOOP_STATE.animation_event_id);
+   ANIMATION_LOOP_STATE.timeout_event_id = twr_register_callback("AnimationLoopTimeoutHandler");
+   twr_timer_single_shot(ANIMATION_LOOP_TIMEOUT, ANIMATION_LOOP_STATE.timeout_event_id);
+
+}
+
 // ---------- Test Runner ----------
 void run_next_test() {
    stop_all_ui_events(); //stop all ui events
@@ -1152,8 +1215,15 @@ void run_next_test() {
       }
       break;
 
+      case 2:
+      {
+         animation_loop_test_start();
+      }
+      break;
+
       default:
       {
+         reset_event_handler();
          printf("Finished with %d failures!\n", TOTAL_FAILURES);
       }
       break;
