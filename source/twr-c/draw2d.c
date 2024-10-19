@@ -695,3 +695,15 @@ void d2d_setcanvaspropstring(struct d2d_draw_seq* ds, const char* prop_name, con
 
    set_ptrs(ds, &r->hdr, (void*)r->prop_name, (void*)r->val);
 }
+
+long d2d_idexists(struct d2d_draw_seq* ds, long id) {
+   long exists = 0;
+   struct d2dins_idexists* r = twr_cache_malloc(sizeof(struct d2dins_idexists));
+   r->hdr.type = D2D_IDEXISTS;
+   r->id = id;
+   r->exists = &exists;
+   set_ptrs(ds, &r->hdr, NULL, NULL);
+   d2d_flush(ds);
+
+   return exists;
+}

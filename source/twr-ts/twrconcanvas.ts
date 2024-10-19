@@ -60,6 +60,7 @@ enum D2DType {
     D2D_GETCANVASPROPSTRING = 61,
     D2D_SETCANVASPROPDOUBLE = 62,
     D2D_SETCANVASPROPSTRING = 63,
+    D2D_IDEXISTS = 64,
 }
 
 function calculateID(mod:IWasmModule|IWasmModuleAsync, id: number) {
@@ -844,6 +845,18 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas {
                if (typeof prevVal != "string") throw new Error("D2D_SETCANVASPROPSTRING with property " + propName + " expected a string, got " + (typeof prevVal) + "!");
 
                (this.ctx as {[key: string]: any})[propName] = val;
+            }
+            break;
+
+            case D2DType.D2D_IDEXISTS:
+            {
+               const id = wasmMem.getLong(currentInsParams);
+               const existsPtr = wasmMem.getLong(currentInsParams + 4);
+
+               const fullID = calculateID(mod, id);
+               const exists = fullID in this.precomputedObjects;
+
+               wasmMem.setLong(existsPtr, exists ? 1 : 0);
             }
             break;
             

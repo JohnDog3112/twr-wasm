@@ -100,6 +100,10 @@ void test_img_hash(struct d2d_draw_seq* ds, bool print_result, const char* test,
 }
 
 enum Test {
+   FailIDExists,
+   IDExists,
+   ReleaseIDAndIDExists,
+
    EmptyCanvas,
    FillRect,
    Reset,
@@ -157,10 +161,14 @@ enum Test {
    SetCanvasPropString,
 };
 
-const int START_TEST = EmptyCanvas;
+const int START_TEST = FailIDExists;
 const int END_TEST = SetCanvasPropString;
 
-const char* test_strs[50] = {
+const char* test_strs[55] = {
+   "FailIDExists",
+   "IDExists",
+   "ReleaseIDAndIDExists",
+
    "EmptyCanvas",
    "FillRect",
    "Reset",
@@ -223,6 +231,56 @@ void test_case(int id, bool first_run) {
    d2d_reset(ds);
 
    switch (id) {
+      case FailIDExists:
+      {
+         const long TEST_ID = 210203;
+         if (!d2d_idexists(ds, TEST_ID)) {
+            if (first_run)
+               printf("%s test was successful!\n", test_strs[id]);
+         } else {
+            if (first_run)
+               printf("%s test failed! An Object with ID %ld shouldn't exist!\n", test_strs[id], TEST_ID);
+         }
+      }
+      break;
+
+      case IDExists:
+      {
+         const long TEST_ID = 3042034;
+         d2d_getimagedata(ds, TEST_ID, 0.0, 0.0, 25.0, 25.0);
+
+         if (d2d_idexists(ds, TEST_ID)) {
+            if (first_run)
+               printf("%s test was successful!\n", test_strs[id]);
+            d2d_releaseid(ds, TEST_ID);
+         } else {
+            if (first_run)
+               printf("%s test failed!\n", test_strs[id]);
+         }
+      }
+      break; 
+
+      case ReleaseIDAndIDExists:
+      {
+         const long TEST_ID = 530239;
+         d2d_getimagedata(ds, TEST_ID, 0.0, 0.0, 250, 25.0);
+         
+         if (d2d_idexists(ds, TEST_ID)) {
+            d2d_releaseid(ds, TEST_ID);
+            if (first_run) {
+               if (d2d_idexists(ds, TEST_ID)) {
+                  printf("%s test failed to release object!", test_strs[id]);
+               } else {
+                  printf("%s test was successful!\n", test_strs[id]);
+               }
+            }
+         } else {
+            if (first_run)
+               printf("%s test failed to create object with d2d_getimagedata (or check it's existance)!\n", test_strs[id]);
+         }
+      }
+      break;
+
       case EmptyCanvas:
       {
          test_img_hash(ds, first_run, test_strs[id], 0xEBF5A8C4);
