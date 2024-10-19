@@ -470,7 +470,6 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas {
                if (mod.isTwrWasmModuleAsync) {  // Uint8ClampedArray doesn't support shared memory, so copy the memory
                   //console.log("D2D_PUTIMAGEDATA wasmModuleAsync");
                   const z = this.precomputedObjects[fullID] as {mem8:Uint8Array, width:number, height:number}; // Uint8Array
-                  console.log(z);
                   const ca=Uint8ClampedArray.from(z.mem8);  // shallow copy
                   imgData=new ImageData(ca, z.width, z.height);
                }
