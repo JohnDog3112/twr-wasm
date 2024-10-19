@@ -151,6 +151,7 @@ enum Test {
    CreateLinearGradient, //also tests releaseid, setfillstylegradient, and addColorStop
    CreateRadialGradient,
 
+   GetImageDataAndPutImageData,
    CToImageDataAndPutImageData,
    LoadAndDrawImage,
    LoadAndDrawCroppedImage,
@@ -216,6 +217,7 @@ const char* test_strs[55] = {
    "CreateLinearGradient",
    "CreateRadialGradient",
 
+   "GetImageDataAndPutImageData",
    "CToImageDataAndPutImageData",
    "LoadAndDrawImage",
    "LoadAndDrawCroppedImage",
@@ -726,6 +728,30 @@ void test_case(int id, bool first_run) {
          d2d_releaseid(ds, 1);
 
          test_img_hash(ds, first_run, test_strs[id], 0x44CD7BC4);
+      }
+      break;
+
+      case GetImageDataAndPutImageData:
+      {
+         //draws checkered red, blue tiles in 3x3 grid
+         d2d_setfillstyle(ds, "red");
+         d2d_fillrect(ds, 10, 10, 50, 50); //top-left
+         d2d_fillrect(ds, 10 + 50*2, 10, 50, 50); //top-right
+         d2d_fillrect(ds, 10 + 50*1, 10 + 50*1, 50, 50); //center
+         d2d_fillrect(ds, 10, 10 + 50*2, 50, 50); //bottom-left
+         d2d_fillrect(ds, 10 + 50*2, 10 + 50*2, 50, 50); //bottom-right
+
+         d2d_setfillstyle(ds, "blue");
+         d2d_fillrect(ds, 10 + 50*1, 10, 50, 50); //top-center
+         d2d_fillrect(ds, 10, 10 + 50*1, 50, 50); //center-left
+         d2d_fillrect(ds, 10 + 50*2, 10 + 50*1, 50, 50); //center-right
+         d2d_fillrect(ds, 10 + 50*1, 10 + 50*2, 50, 50); //bottom-center
+
+         d2d_getimagedata(ds, 350, 10, 10, 50*3, 50*3);
+         d2d_putimagedata(ds, 350, 250, 250);
+         d2d_releaseid(ds, 350);
+
+         test_img_hash(ds, first_run, test_strs[id], 0x0000000);
       }
       break;
 

@@ -470,6 +470,7 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas {
                if (mod.isTwrWasmModuleAsync) {  // Uint8ClampedArray doesn't support shared memory, so copy the memory
                   //console.log("D2D_PUTIMAGEDATA wasmModuleAsync");
                   const z = this.precomputedObjects[fullID] as {mem8:Uint8Array, width:number, height:number}; // Uint8Array
+                  console.log(z);
                   const ca=Uint8ClampedArray.from(z.mem8);  // shallow copy
                   imgData=new ImageData(ca, z.width, z.height);
                }
@@ -758,7 +759,14 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas {
 
                const fullID = calculateID(mod, id);
                if ( fullID in this.precomputedObjects ) console.log("warning: D2D_GETIMAGEDATA ID already exists.");
-               this.precomputedObjects[fullID] = imgData;
+
+
+               if (mod.isTwrWasmModuleAsync) {  // Uint8ClampedArray doesn't support shared memory
+                  this.precomputedObjects[fullID]={mem8: Uint8Array.from(imgData.data), width:imgData.width, height:imgData.height};
+               }
+               else {
+                  this.precomputedObjects[fullID]=imgData;
+               }
 
                // const memPtr = wasmMem.getLong(currentInsParams+32);
                // const memLen = wasmMem.getLong(currentInsParams+36);
@@ -779,10 +787,17 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas {
                const fullID = calculateID(mod, id);
                if (!(fullID in this.precomputedObjects)) throw new Error("D2D_IMAGEDATATOC with invalid ID: "+id);
 
-               const img = this.precomputedObjects[fullID] as ImageData;
-               const imgLen = img.data.byteLength;
+               let data;
+               if (mod.isTwrWasmModuleAsync) {
+                  const img = this.precomputedObjects[fullID] as {mem8:Uint8Array, width:number, height:number};
+                  data = img.mem8;
+               } else {
+                  const img = this.precomputedObjects[fullID] as ImageData;
+                  data = img.data;
+               }
+               const imgLen = data.byteLength;
                if (imgLen > bufferLen) console.log("Warning: D2D_IMAGEDATATOC was given a buffer smaller than the image size! Extra data is being truncated");
-               wasmMem.mem8u.set(img.data.slice(0, Math.min(bufferLen, imgLen)), bufferPtr);
+               wasmMem.mem8u.set(data.slice(0, Math.min(bufferLen, imgLen)), bufferPtr);
             }
                break;
             
