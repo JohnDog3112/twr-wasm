@@ -79,3 +79,8 @@ export abstract class twrWasmBase {
    }
 
 }
+
+let nextModuleID = 0;
+export function getNextModuleID() {
+   return nextModuleID++;
+}
