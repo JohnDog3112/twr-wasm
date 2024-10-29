@@ -7,29 +7,24 @@ enum EventType {
    AnimationLoop
 };
 
+const KEY_EVENT_SET = new Set(["keydown", "keyup"]);
+type KeyEventTypes = "keydown" | "keyup";
+
+const MOUSE_EVENT_SET = new Set(["mousemove", "mousedown", "mouseup", "click", "dblclick"]);
 type MouseEventTypes = "mousemove" | "mousedown" | "mouseup" | "click" | "dblclick";
 // Libraries use default export
 export default class jsEventsLib extends twrLibrary {
    id: number;
 
    imports:TLibImports = {
-      registerGlobalKeyUpEvent: {},
-      registerLocalKeyUpEvent: {},
-      registerGlobalKeyDownEvent: {},
-      registerLocalKeyDownEvent: {},
+      twrRegisterGlobalKeyEvent: {},
+      twrRegisterLocalKeyEvent: {},
       
       registerAnimationLoop: {},
 
-      registerGlobalMouseMoveEvent: {},
-      registerLocalMouseMoveEvent: {},
-      registerGlobalMouseDownEvent: {},
-      registerLocalMouseDownEvent: {},
-      registerGlobalMouseUpEvent: {},
-      registerLocalMouseUpEvent: {},
-      registerGlobalMouseClickEvent: {},
-      registerLocalMouseClickEvent: {},
-      registerGlobalMouseDoubleClickEvent: {},
-      registerLocalMouseDoubleClickEvent: {},
+      twrRegisterGlobalMouseEvent: {},
+      twrRegisterLocalMouseEvent: {},
+
       registerGlobalWheelEvent: {},
       registerLocalWheelEvent: {},
 
@@ -76,6 +71,14 @@ export default class jsEventsLib extends twrLibrary {
       return eventHandlerID;
    }
 
+   internalGetElementByID(callingMod:IWasmModule|IWasmModuleAsync, elementIDPtr: number, calling_name: string) {
+      const elementID = callingMod.wasmMem.getString(elementIDPtr);
+      const element = document.getElementById(elementID);
+      if (element == null) throw new Error(`Error! ${calling_name} was given invalid element ID (${elementID})!`);
+
+      return element;
+   }
+
    internalCreateKeyHandler(callingMod: IWasmModule|IWasmModuleAsync, eventID: number) {
       return (event: KeyboardEvent) => {
          const r=keyEventToCodePoint(event);  // twr-wasm utility function
@@ -85,42 +88,22 @@ export default class jsEventsLib extends twrLibrary {
       }
    }
 
-   registerGlobalKeyUpEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
+   twrRegisterGlobalKeyEvent(callingMod:IWasmModule|IWasmModuleAsync, eventNamePtr: number, eventID: number) {
+      const keyEvent = callingMod.wasmMem.getString(eventNamePtr) as KeyEventTypes;
+      if (!KEY_EVENT_SET.has(keyEvent)) throw new Error(`twrRegisterGlobalKeyEvent was given an unrecognized keyboard event (${keyEvent})!`);
       return this.internalRegisterGlobalEvent(
-         'keyup', 
+         keyEvent,
          this.internalCreateKeyHandler(callingMod, eventID)
-      );
+      )
    }
-
-   registerGlobalKeyDownEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
-      return this.internalRegisterGlobalEvent(
-         'keydown', 
-         this.internalCreateKeyHandler(callingMod, eventID)
-      );
-   }
-
-   internalGetElementByID(callingMod:IWasmModule|IWasmModuleAsync, elementIDPtr: number, calling_name: string) {
-      const elementID = callingMod.wasmMem.getString(elementIDPtr);
-      const element = document.getElementById(elementID);
-      if (element == null) throw new Error(`Error! ${calling_name} was given invalid element ID (${elementID})!`);
-
-      return element;
-   }
-
-   registerLocalKeyUpEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number) {
+   twrRegisterLocalKeyEvent(callingMod:IWasmModule|IWasmModuleAsync, eventNamePtr: number, eventID: number, elementIDPtr: number) {
+      const keyEvent = callingMod.wasmMem.getString(eventNamePtr) as KeyEventTypes;
+      if (!KEY_EVENT_SET.has(keyEvent)) throw new Error(`twrRegisterLocalKeyEvent was given an unrecognized keyboard event (${keyEvent})!`);
       return this.internalRegisterLocalEvent(
-         this.internalGetElementByID(callingMod, elementIDPtr, "registerLocalKeyUpEvent"),
-         'keyup', 
+         this.internalGetElementByID(callingMod, elementIDPtr, "twrRegisterLocalKeyEvent"),
+         keyEvent,
          this.internalCreateKeyHandler(callingMod, eventID)
-      );
-   }
-
-   registerLocalKeyDownEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number) {
-      return this.internalRegisterLocalEvent(
-         this.internalGetElementByID(callingMod, elementIDPtr, "registerLocalKeyDownEvent"),
-         'keydown', 
-         this.internalCreateKeyHandler(callingMod, eventID)
-      );
+      )
    }
 
    registerAnimationLoop(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
@@ -139,18 +122,9 @@ export default class jsEventsLib extends twrLibrary {
       return intEventID;
    }
 
-   
-   internalGlobalMouseEvent(callingMod: IWasmModule|IWasmModuleAsync, eventName: MouseEventTypes, eventID: number) {
-      return this.internalRegisterGlobalEvent(
-         eventName,
-         (e: MouseEvent) => {
-            callingMod.postEvent(eventID, e.pageX, e.pageY);
-         }
-      )
-   }
-   internalGetMouseOffset(element: HTMLElement, relative: boolean): [number, number] {
-      //if it isn't relative, offset by 0
-      if (!relative) {
+   internalGetMouseOffset(element: HTMLElement|undefined): [number, number] {
+      //if it's global (no element), offset by 0
+      if (element == undefined) {
          return [0, 0];
       }
 
@@ -162,82 +136,30 @@ export default class jsEventsLib extends twrLibrary {
 
       return [x_off, y_off];
    }
-   internalLocalMouseEvent(callingMod: IWasmModule|IWasmModuleAsync, eventName: MouseEventTypes, callingName: string, eventID: number, elementIDPtr: number, relative: boolean) {
-      const element = this.internalGetElementByID(callingMod, elementIDPtr, callingName);
+   internalCreateMouseHandler(callingMod: IWasmModule|IWasmModuleAsync, eventName: MouseEventTypes, eventID: number, element: HTMLElement|undefined = undefined) {
+      const [x_off, y_off] = this.internalGetMouseOffset(element);
+      return (e: MouseEvent) => {
+         callingMod.postEvent(eventID, e.pageX, e.pageY, e.pageX - x_off, e.pageY - y_off);
+      };
+   }
+   twrRegisterGlobalMouseEvent(callingMod: IWasmModule|IWasmModuleAsync, eventNamePtr: number, eventID: number) {
+      const eventName = callingMod.wasmMem.getString(eventNamePtr) as MouseEventTypes;
+      if (!MOUSE_EVENT_SET.has(eventName)) throw new Error(`twrRegisterGlobalMouseEvent was given an unrecognized event name (${eventName})!`);
+      return this.internalRegisterGlobalEvent(
+         eventName,
+         this.internalCreateMouseHandler(callingMod, eventName, eventID)
+      );
+   }
+   twrRegisterLocalMouseEvent(callingMod: IWasmModule|IWasmModuleAsync, eventNamePtr: number, eventID: number, elementIDPtr: number) {
+      const eventName = callingMod.wasmMem.getString(eventNamePtr) as MouseEventTypes;
+      if (!MOUSE_EVENT_SET.has(eventName)) throw new Error(`twrRegisterLocalMouseEvent was given an unrecognized event name (${eventName})!`);
 
-      const [x_off, y_off] = this.internalGetMouseOffset(element, relative);
+      const element = this.internalGetElementByID(callingMod, elementIDPtr, "twrRegisterInternalMouseEvent");
 
       return this.internalRegisterLocalEvent(
          element,
          eventName,
-         (e: MouseEvent) => {
-            callingMod.postEvent(eventID, e.pageX - x_off, e.pageY - y_off);
-         }
-      )
-   }
-   registerGlobalMouseMoveEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
-      return this.internalGlobalMouseEvent(callingMod, 'mousemove', eventID);
-   }
-
-   registerLocalMouseMoveEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
-      return this.internalLocalMouseEvent(
-         callingMod, 
-         'mousemove', "registerLocalMouseMoveEvent", 
-         eventID, elementIDPtr, 
-         relative
-      );
-   }
-
-   registerGlobalMouseDownEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
-      return this.internalGlobalMouseEvent(
-         callingMod, 'mousedown', eventID
-      );
-   }
-
-   registerLocalMouseDownEvent(callingMod:IWasmModule|IWasmModule, eventID: number, elementIDPtr: number, relative: boolean) {
-      return this.internalLocalMouseEvent(
-         callingMod, 'mousedown',
-         "registerLocalMouseDownEvent", eventID,
-         elementIDPtr, relative
-      );
-   }
-
-   registerGlobalMouseUpEvent(callingMod:IWasmModule|IWasmModule, eventID: number) {
-      return this.internalGlobalMouseEvent(
-         callingMod, 'mouseup', eventID
-      )
-   }
-
-   registerLocalMouseUpEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
-      return this.internalLocalMouseEvent(
-         callingMod, 'mouseup', "registerLocalMouseUpEvent",
-         eventID, elementIDPtr, relative
-      )
-   }
-
-   registerGlobalMouseClickEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
-      return this.internalGlobalMouseEvent(
-         callingMod, 'click', eventID
-      )
-   }
-
-   registerLocalMouseClickEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
-      return this.internalLocalMouseEvent(
-         callingMod, 'click', 'registerLocalMouseClickEvent',
-         eventID, elementIDPtr, relative
-      )
-   }
-
-   registerGlobalMouseDoubleClickEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
-      return this.internalGlobalMouseEvent(
-         callingMod, 'dblclick', eventID
-      )
-   }
-
-   registerLocalMouseDoubleClickEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number, relative: boolean) {
-      return this.internalLocalMouseEvent(
-         callingMod, 'dblclick', "registerLocalMouseDoubleClickEvent",
-         eventID, elementIDPtr, relative
+         this.internalCreateMouseHandler(callingMod, eventName, eventID, element)
       )
    }
 

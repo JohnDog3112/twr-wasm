@@ -47,34 +47,6 @@ const char* EVENT_NAMES[20] = {
    "wheel"
 };
 
-typedef int (*GlobalRegisterFunc)(int);
-const GlobalRegisterFunc GLOBAL_KEYBOARD_REGISTER_FUNCS[2] = {
-   register_global_key_up_event,
-   register_global_key_down_event,
-};
-
-const GlobalRegisterFunc GLOBAL_MOUSE_REGISTER_FUNCS[5] = {
-   register_global_mouse_move_event,
-   register_global_mouse_up_event,
-   register_global_mouse_down_event,
-   register_global_mouse_click_event,
-   register_global_mouse_double_click_event,
-};
-
-typedef int (*LocalKeyboardRegisterFunc)(int, const char*);
-const LocalKeyboardRegisterFunc LOCAL_KEYBOARD_REGISTER_FUNCS[2] = {
-   register_local_key_up_event,
-   register_local_key_down_event
-};
-
-typedef int (*LocalMouseRegisterFunc)(int, const char*, int);
-const LocalMouseRegisterFunc LOCAL_MOUSE_REGISTER_FUNCS[5] = {
-   register_local_mouse_move_event,
-   register_local_mouse_up_event,
-   register_local_mouse_down_event,
-   register_local_mouse_click_event,
-   register_local_mouse_double_click_event
-};
 
 enum Locality {
    LOCAL,
@@ -860,7 +832,7 @@ void keyboard_event_handler(int event_id, long key_code) {
 }
 
 __attribute__((export_name("mouseEventHandler")))
-void mouse_event_handler(int event_id, double x, double y) {
+void mouse_event_handler(int event_id, double x, double y, double relative_x, double relative_y) {
    if (event_id != EVENT_HANDLER.mouse_event_id) return;
 
    //disable timeout
@@ -880,12 +852,23 @@ void mouse_event_handler(int event_id, double x, double y) {
       return;
    }
 
+   double n_x = x;
+   double n_y = y;
+   if (event->locality == LOCAL) {
+      struct MouseEventExtraLocalArgs* local_args = (struct MouseEventExtraLocalArgs*)event->local_args.extra;
+      if (local_args->relative) {
+         n_x = relative_x;
+         n_y = relative_y;
+      }
 
-   if (args->x == x && args->y == y) {
+   }
+
+
+   if (args->x == n_x && args->y == n_y) {
       printf("was successful!\n");
    } else {
       TOTAL_FAILURES++;
-      printf("failed! Expected (%f, %f) got (%f, %f)\n", args->x, args->y, x, y);
+      printf("failed! Expected (%f, %f) got (%f, %f)\n", args->x, args->y, n_x, n_y);
    }
    run_next_event();
 }
@@ -982,12 +965,14 @@ void run_next_event() {
          struct KeyboardEventArgs* args = (struct KeyboardEventArgs*)event->args; 
          EVENT_HANDLER.keyboard_event_id = twr_register_callback("keyboardEventHandler");
          if (event->locality == GLOBAL) {
-            GLOBAL_KEYBOARD_REGISTER_FUNCS[event->event_type - KEY_UP](
+            twr_register_global_key_event(
+               event_name,
                EVENT_HANDLER.keyboard_event_id
             );
             send_global_keyboard_event(event_name, args->key);
          } else {
-            LOCAL_KEYBOARD_REGISTER_FUNCS[event->event_type - KEY_UP](
+            twr_register_local_key_event(
+               event_name,
                EVENT_HANDLER.keyboard_event_id,
                //if it's supposed_to_timeout, watch the event on element2 so it *should* fail if it's properly local
                event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id
@@ -1006,17 +991,18 @@ void run_next_event() {
          struct MouseEventArgs* args = (struct MouseEventArgs*)event->args;
          EVENT_HANDLER.mouse_event_id = twr_register_callback("mouseEventHandler");
          if (event->locality == GLOBAL) {
-            GLOBAL_MOUSE_REGISTER_FUNCS[event->event_type - MOUSE_MOVE](
+            twr_register_global_mouse_event(
+               event_name,
                EVENT_HANDLER.mouse_event_id
             );
             send_global_mouse_event(event_name, args->x, args->y);
          } else {
             struct MouseEventExtraLocalArgs* local_mouse = (struct MouseEventExtraLocalArgs*)event->local_args.extra;
-            LOCAL_MOUSE_REGISTER_FUNCS[event->event_type - MOUSE_MOVE](
+            twr_register_local_mouse_event(
+               event_name,
                EVENT_HANDLER.mouse_event_id,
                //if it's supposed_to_timeout, watch the event on element2 so it *should* fail if it's properly local
-               event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id,
-               local_mouse->relative
+               event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id
             );
             send_local_mouse_event(
                event_name,
@@ -1125,7 +1111,7 @@ void test_key_press_and_stop_event() {
 
    
 
-   TEST_KEY_AND_STOP_EXTRA_ID = register_global_key_down_event(TEST_KEY_AND_STOP_EVENT_ID);
+   TEST_KEY_AND_STOP_EXTRA_ID = twr_register_global_key_event("keydown", TEST_KEY_AND_STOP_EVENT_ID);
 
    //make first print for total message:
    printf("TestKeyPressAndStopEvent: ");
