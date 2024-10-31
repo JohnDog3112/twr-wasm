@@ -42,29 +42,34 @@ export default class jsEventsLib extends twrLibrary {
 
    nextEventHandlerID: number = 0;
 
-   events: (
+   //2d dictionary/array, first id is module, second is event
+   events: { [moduleID: number]: { [id: number]: (
       [EventType.Global, string, (e: any) => void]
       | [EventType.Local, HTMLElement, string, (e: any) => void]
       //deleting this elements tell the animation loop to stop
       | [EventType.AnimationLoop] 
-   )[] = [];
+   )}} = {};
 
    //Generic setup comes from the typescript definition for addEventListener
    //allows automatic mapping and type checking for the event name vs. the event type in the handler function
-   internalRegisterGlobalEvent<K extends keyof HTMLElementEventMap>(eventName: K, handler: (ev: HTMLElementEventMap[K]) => void) {
+   internalRegisterGlobalEvent<K extends keyof HTMLElementEventMap>(mod: IWasmModule|IWasmModuleAsync, eventName: K, handler: (ev: HTMLElementEventMap[K]) => void) {
       const eventHandlerID = this.nextEventHandlerID++;
       
-      this.events[eventHandlerID] = [EventType.Global, eventName, handler];
+      if (!(mod.id in this.events)) this.events[mod.id] = {};
+
+      this.events[mod.id][eventHandlerID] = [EventType.Global, eventName, handler];
 
       document.addEventListener(eventName, handler);
 
       return eventHandlerID;
    }
 
-   internalRegisterLocalEvent<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any) {
+   internalRegisterLocalEvent<K extends keyof HTMLElementEventMap>(mod: IWasmModule|IWasmModuleAsync, element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any) {
       const eventHandlerID = this.nextEventHandlerID++;
 
-      this.events[eventHandlerID] = [EventType.Local, element, eventName, handler];
+      if (!(mod.id in this.events)) this.events[mod.id] = {};
+
+      this.events[mod.id][eventHandlerID] = [EventType.Local, element, eventName, handler];
 
       element.addEventListener(eventName, handler);
 
@@ -92,6 +97,7 @@ export default class jsEventsLib extends twrLibrary {
       const keyEvent = callingMod.wasmMem.getString(eventNamePtr) as KeyEventTypes;
       if (!KEY_EVENT_SET.has(keyEvent)) throw new Error(`twrRegisterGlobalKeyEvent was given an unrecognized keyboard event (${keyEvent})!`);
       return this.internalRegisterGlobalEvent(
+         callingMod,
          keyEvent,
          this.internalCreateKeyHandler(callingMod, eventID)
       )
@@ -100,6 +106,7 @@ export default class jsEventsLib extends twrLibrary {
       const keyEvent = callingMod.wasmMem.getString(eventNamePtr) as KeyEventTypes;
       if (!KEY_EVENT_SET.has(keyEvent)) throw new Error(`twrRegisterLocalKeyEvent was given an unrecognized keyboard event (${keyEvent})!`);
       return this.internalRegisterLocalEvent(
+         callingMod,
          this.internalGetElementByID(callingMod, elementIDPtr, "twrRegisterLocalKeyEvent"),
          keyEvent,
          this.internalCreateKeyHandler(callingMod, eventID)
@@ -108,11 +115,12 @@ export default class jsEventsLib extends twrLibrary {
 
    registerAnimationLoop(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
       const intEventID = this.nextEventHandlerID++;
-      this.events[intEventID] = [EventType.AnimationLoop];
+      if (!(callingMod.id in this.events)) this.events[callingMod.id] = {};
+      this.events[callingMod.id][intEventID] = [EventType.AnimationLoop];
 
       const loop: FrameRequestCallback = (time) => {
          //run until it's item in the event list is deleted
-         if (intEventID in this.events) {
+         if (intEventID in this.events[callingMod.id]) {
             callingMod.postEvent(eventID, time);
             requestAnimationFrame(loop);
          }
@@ -146,6 +154,7 @@ export default class jsEventsLib extends twrLibrary {
       const eventName = callingMod.wasmMem.getString(eventNamePtr) as MouseEventTypes;
       if (!MOUSE_EVENT_SET.has(eventName)) throw new Error(`twrRegisterGlobalMouseEvent was given an unrecognized event name (${eventName})!`);
       return this.internalRegisterGlobalEvent(
+         callingMod,
          eventName,
          this.internalCreateMouseHandler(callingMod, eventName, eventID)
       );
@@ -157,6 +166,7 @@ export default class jsEventsLib extends twrLibrary {
       const element = this.internalGetElementByID(callingMod, elementIDPtr, "twrRegisterInternalMouseEvent");
 
       return this.internalRegisterLocalEvent(
+         callingMod,
          element,
          eventName,
          this.internalCreateMouseHandler(callingMod, eventName, eventID, element)
@@ -165,6 +175,7 @@ export default class jsEventsLib extends twrLibrary {
 
    registerGlobalWheelEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
       return this.internalRegisterGlobalEvent(
+         callingMod,
          'wheel',
          (e) => {
             callingMod.postEvent(eventID, e.deltaX, e.deltaY, e.deltaZ, e.deltaMode)
@@ -174,6 +185,7 @@ export default class jsEventsLib extends twrLibrary {
 
    registerLocalWheelEvent(callingMod: IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number) {
       return this.internalRegisterLocalEvent(
+         callingMod,
          this.internalGetElementByID(callingMod, elementIDPtr, "registerLocalWheelEvent"),
          'wheel',
          (e) => {
@@ -183,9 +195,8 @@ export default class jsEventsLib extends twrLibrary {
    }
 
    stopUIEvent(callingMod:IWasmModule|IWasmModuleAsync, eventHandlerID: number) {
-      console.log(this.events);
-      if (!(eventHandlerID in this.events)) throw new Error(`stop event was given an invalid eventHandlerID (${eventHandlerID})!`);
-      const eventHandler = this.events[eventHandlerID];
+      if (!(eventHandlerID in this.events[callingMod.id])) throw new Error(`stop event was given an invalid eventHandlerID (${eventHandlerID})!`);
+      const eventHandler = this.events[callingMod.id][eventHandlerID];
 
       switch (eventHandler[0]) {
          case EventType.Local:
@@ -211,13 +222,13 @@ export default class jsEventsLib extends twrLibrary {
       }
 
       //delete event from list of event handlers
-      delete this.events[eventHandlerID];
+      delete this.events[callingMod.id][eventHandlerID];
    }
 
    stopAllUIEvents(callingMod:IWasmModule|IWasmModuleAsync) {
-      for (const eventHandlerID of this.events.keys()) {
-         if (this.events[eventHandlerID] == undefined) continue;
-         this.stopUIEvent(callingMod, eventHandlerID);
+      for (const eventHandlerID in this.events[callingMod.id]) {
+         if (this.events[callingMod.id][eventHandlerID] == undefined) throw new Error("what??");
+         this.stopUIEvent(callingMod, eventHandlerID as any as number);
       }
    }
 }

@@ -1142,6 +1142,7 @@ void animation_loop_timeout_handler(int event_id) {
    if (event_id != ANIMATION_LOOP_STATE.timeout_event_id) return;
 
    printf("timed out!\n");
+   TOTAL_FAILURES++;
    //turn off events
    ANIMATION_LOOP_STATE.animation_event_id = -1;
    ANIMATION_LOOP_STATE.timeout_event_id = -1;
