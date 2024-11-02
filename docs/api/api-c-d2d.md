@@ -76,7 +76,7 @@ Other functions that take a string, like d2d_filltext,  don't have this same iss
 
 getCanvasPropDouble, getCanvasPropString, setCanvasPropDouble, and setCanvasPropString allow you to change canvas properties by name. If the previous values type is either undefined, a string rather than a number, etc. then it will throw an error so ensure that you have your property names correct.
 
-d2d_load_image is not called like other instructions which rely on d2d_start_draw_sequence. This means it always gets called immediately and doesn't queue up in or flush the instruction queue. This can cause some issues such as the example below.
+d2d_load_image and it's variants are not called like other instructions which rely on d2d_start_draw_sequence. This means it always gets called immediately and doesn't queue up in or flush the instruction queue. This can cause some issues such as the example below.
 ~~~c title="Load Image Pitfall"
 #include "twr-draw2d.h"
 bool has_background = false;
@@ -196,6 +196,10 @@ void d2d_resettransform(struct d2d_draw_seq* ds);
 
 bool d2d_load_image(const char* url, long id);
 bool d2d_load_image_with_con(const char* url, long id, twr_ioconsole_t * con);
+void d2d_load_image_async(const char* url, long id);
+void d2d_load_image_async_ext(const char* url, long id, long event_id);
+void d2d_load_image_async_with_con(const char* url, long id, twr_ioconsole_t * con);
+void d2d_load_image_async_with_con_ext(const char* url, long id, long event_id, twr_ioconsole_t * con);
 void d2d_drawimage(struct d2d_draw_seq* ds, long id, double dx, double dy);
 void d2d_drawimage_ex(struct d2d_draw_seq* ds, long id, double sx, double sy, double sWidth, double sHeight, double dx, double dy, double dWidth, double dHeight);
 void d2d_getimagedata(struct d2d_draw_seq* ds, long id, double x, double y, double width, double height);

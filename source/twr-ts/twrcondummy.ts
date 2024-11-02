@@ -27,6 +27,7 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       twrConSetColors:{noBlock:true},
       twrConDrawSeq:{},
       twrConLoadImage:{isModuleAsyncOnly:true, isAsyncFunction:true},
+      twrConLoadImageAsync: {},
    };
 
    libSourcePath = new URL(import.meta.url).pathname;
@@ -37,6 +38,7 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
    }
+   element?: HTMLElement | undefined;
    
    twrConGetProp(callingMod:IWasmModule|IWasmModuleAsync, pn:number):number {
       throw new Error("internal error");
@@ -115,6 +117,10 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
    }
 
    twrConLoadImage_async(mod: IWasmModuleAsync, urlPtr: number, id: number) : Promise<number> {
+      throw new Error("internal error");
+   }
+
+   twrConLoadImageAsync(mod: IWasmModule | IWasmModuleAsync, urlPtr: number, id: number, eventID: number | undefined) {
       throw new Error("internal error");
    }
 

@@ -236,7 +236,7 @@ void test_case(int id, bool first_run) {
       case FailIDExists:
       {
          const long TEST_ID = 210203;
-         if (!d2d_idexists(ds, TEST_ID)) {
+         if (!d2d_doesidexist(ds, TEST_ID)) {
             if (first_run)
                printf("%s test was successful!\n", test_strs[id]);
          } else {
@@ -251,7 +251,7 @@ void test_case(int id, bool first_run) {
          const long TEST_ID = 3042034;
          d2d_getimagedata(ds, TEST_ID, 0.0, 0.0, 25.0, 25.0);
 
-         if (d2d_idexists(ds, TEST_ID)) {
+         if (d2d_doesidexist(ds, TEST_ID)) {
             if (first_run)
                printf("%s test was successful!\n", test_strs[id]);
             d2d_releaseid(ds, TEST_ID);
@@ -267,10 +267,10 @@ void test_case(int id, bool first_run) {
          const long TEST_ID = 530239;
          d2d_getimagedata(ds, TEST_ID, 0.0, 0.0, 250, 25.0);
          
-         if (d2d_idexists(ds, TEST_ID)) {
+         if (d2d_doesidexist(ds, TEST_ID)) {
             d2d_releaseid(ds, TEST_ID);
             if (first_run) {
-               if (d2d_idexists(ds, TEST_ID)) {
+               if (d2d_doesidexist(ds, TEST_ID)) {
                   printf("%s test failed to release object!", test_strs[id]);
                } else {
                   printf("%s test was successful!\n", test_strs[id]);
@@ -882,20 +882,93 @@ void test_case(int id, bool first_run) {
       }
    }
 }
-void test_all() {
-   for (int test_id = START_TEST; test_id <= END_TEST; test_id++) {
-      test_case(test_id, true);
+
+void full_test_case(long test_id, int loop);
+
+//special cases that can't be tested like everything else
+enum SpecialTest {
+   AsyncLoadImage,
+};
+const long START_SPECIAL_TEST = AsyncLoadImage;
+const long END_SPECIAL_TEST = AsyncLoadImage;
+
+const char* special_test_strs[5] = {
+   "AsyncLoadImage"
+};
+
+//---------- Async Load Image ----------
+int IMAGE_FINISHED_ID = -1;
+const long ASYNC_LOAD_IMAGE_ID = 643;
+bool ASYNC_LOAD_IMAGE_ALL = false;
+__attribute__((export_name("ImageFinishedLoading")))
+void image_finished_loading(int eventID, int success) {
+   if (eventID != IMAGE_FINISHED_ID) return;
+
+   if (!success) {
+      printf("AsyncLoadImage failed to load the image (test-img.jpg)!\n");
+   } else {
+      struct d2d_draw_seq* ds = d2d_start_draw_sequence(1000);
+      d2d_reset(ds);
+
+      d2d_drawimage(ds, ASYNC_LOAD_IMAGE_ID, 0.0, 0.0);
+      test_img_hash(ds, true, "AsyncLoadImage", 0xF35DC5F0);
+
+      
+   }
+
+   //if we're testing all tests, run next one
+   if (ASYNC_LOAD_IMAGE_ALL) {
+      full_test_case(END_TEST + AsyncLoadImage + 2, true);
    }
 }
 
+
+//---------- Async Load Image End ----------
+void full_test_case(long test_id, int all) {
+   if (START_TEST <= test_id && test_id <= END_TEST) {
+      test_case(test_id, true);
+      return;
+   }
+   switch((enum SpecialTest)(test_id - END_TEST - 1)) {
+      case AsyncLoadImage:
+      {
+         struct d2d_draw_seq* ds = d2d_start_draw_sequence(1000);
+         d2d_releaseid(ds, ASYNC_LOAD_IMAGE_ID);
+         d2d_end_draw_sequence(ds);
+         
+         IMAGE_FINISHED_ID = twr_register_callback("ImageFinishedLoading");
+         d2d_load_image_async_ext("test-img.jpg", ASYNC_LOAD_IMAGE_ID, IMAGE_FINISHED_ID);
+      }
+      break;
+      default: {
+         if (all) {
+            //early return if at the end when running everything
+            return;
+         }
+         printf("Was given invalid test ID (%ld, %ld)!\n", test_id, test_id - END_TEST - 1);
+         abort();
+      }
+   }
+}
+void test_all() {
+   for (int test_id = START_TEST; test_id <= END_TEST; test_id++) {
+      full_test_case(test_id, false);
+   }
+   //every other test will be called based on callbacks
+   full_test_case(END_TEST+1, true);
+}
+
 void test_specific(int id) {
-   test_case(id+START_TEST, true);
+   full_test_case(id+START_TEST, false);
 }
 
 int get_num_tests() {
-   return END_TEST - START_TEST;
+   return END_TEST - START_TEST + END_SPECIAL_TEST - START_SPECIAL_TEST + 1;
 }
 
 const char* get_test_name(int id) {
-   return test_strs[id+START_TEST];
+   if (START_TEST <= id && id <= END_TEST)
+      return test_strs[id+START_TEST];
+
+   return special_test_strs[id - END_TEST];
 }

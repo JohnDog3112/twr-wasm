@@ -563,6 +563,18 @@ bool d2d_load_image(const char* url, long id) {
 bool d2d_load_image_with_con(const char* url, long id, twr_ioconsole_t * con) {
     return twrConLoadImage(__twr_get_jsid(con), url, id);
 }
+void d2d_load_image_async(const char* url, long id) {
+   d2d_load_image_async_with_con(url, id, twr_get_std2d_con());
+}
+void d2d_load_image_async_ext(const char* url, long id, long event_id) {
+   d2d_load_image_async_with_con_ext(url, id, event_id, twr_get_std2d_con());
+}
+void d2d_load_image_async_with_con(const char* url, long id, twr_ioconsole_t * con) {
+   twrConLoadImageAsync(__twr_get_jsid(con), url, id);
+}
+void d2d_load_image_async_with_con_ext(const char* url, long id, long event_id, twr_ioconsole_t * con) {
+   twrConLoadImageAsyncCallback(__twr_get_jsid(con), url, id, event_id);
+}
 
 void d2d_drawimage_ex(struct d2d_draw_seq* ds, long id, double sx, double sy, double sWidth, double sHeight, double dx, double dy, double dWidth, double dHeight) {
     struct d2dins_drawimage* r = twr_cache_malloc(sizeof(struct d2dins_drawimage));

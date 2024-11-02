@@ -94,6 +94,7 @@ export interface IConsoleAddressable {
 export interface IConsoleDrawable {
     twrConDrawSeq: (mod:IWasmModuleAsync|IWasmModule, ds:number)=>void,
     twrConLoadImage_async: (mod:IWasmModuleAsync, urlPtr: number, id: number)=>Promise<number>,
+    twrConLoadImageAsync: (mod: IWasmModule|IWasmModuleAsync, urlPtr: number, id: number, eventID: number|undefined)=>void,
    }
 
 export interface IConsoleTerminal extends IConsoleBase, IConsoleStreamOut, IConsoleStreamIn, IConsoleAddressable {}

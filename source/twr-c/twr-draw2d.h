@@ -436,6 +436,8 @@ struct d2d_2d_matrix {
 
 __attribute__((import_name("twrConDrawSeq"))) void twrConDrawSeq(int jsid, struct d2d_draw_seq *);
 __attribute__((import_name("twrConLoadImage"))) bool twrConLoadImage(int jsid, const char* url, long id);
+__attribute__((import_name("twrConLoadImageAsync"))) bool twrConLoadImageAsync(int jsid, const char* url, long id);
+__attribute__((import_name("twrConLoadImageAsync"))) bool twrConLoadImageAsyncCallback(int jsid, const char* url, long id, long event_id);
 
 struct d2d_draw_seq* d2d_start_draw_sequence(int flush_at_ins_count);
 struct d2d_draw_seq* d2d_start_draw_sequence_with_con(int flush_at_ins_count, twr_ioconsole_t * con);
@@ -505,6 +507,10 @@ void d2d_resettransform(struct d2d_draw_seq* ds);
 
 bool d2d_load_image(const char* url, long id);
 bool d2d_load_image_with_con(const char* url, long id, twr_ioconsole_t * con);
+void d2d_load_image_async(const char* url, long id);
+void d2d_load_image_async_ext(const char* url, long id, long event_id);
+void d2d_load_image_async_with_con(const char* url, long id, twr_ioconsole_t * con);
+void d2d_load_image_async_with_con_ext(const char* url, long id, long event_id, twr_ioconsole_t * con);
 void d2d_drawimage(struct d2d_draw_seq* ds, long id, double dx, double dy);
 void d2d_drawimage_ex(struct d2d_draw_seq* ds, long id, double sx, double sy, double sWidth, double sHeight, double dx, double dy, double dWidth, double dHeight);
 void d2d_getimagedata(struct d2d_draw_seq* ds, long id, double x, double y, double width, double height);
