@@ -800,7 +800,8 @@ void test_case(int id, bool first_run) {
          d2d_releaseid(ds, 1);
          test_img_hash(ds, first_run, test_strs[id], 0xF35DC5F0);
          #else
-         printf("LoadAndDrawImage test can only be tested with async\n");
+         if (first_run)
+            printf("LoadAndDrawImage test can only be tested with async\n");
          #endif
       }
       break;
@@ -813,7 +814,8 @@ void test_case(int id, bool first_run) {
          d2d_releaseid(ds, 1);
          test_img_hash(ds, first_run, test_strs[id], 0xDE176A6E);
          #else
-         printf("LoadAndDrawImage test can only be tested with async\n");
+         if (first_run)
+            printf("LoadAndDrawCroppedImage test can only be tested with async\n");
          #endif
       }
       break;
