@@ -940,7 +940,7 @@ void run_next_event() {
    // it automatically iterates
    EVENT_HANDLER.current_event++;
 
-   stop_all_ui_events();
+   twr_stop_all_ui_events();
    EVENT_HANDLER.keyboard_event_id = -1;
    EVENT_HANDLER.mouse_event_id = -1;
    EVENT_HANDLER.wheel_event_id = -1;
@@ -1019,7 +1019,7 @@ void run_next_event() {
          EVENT_HANDLER.wheel_event_id = twr_register_callback("wheelEventHandler");
 
          if (event->locality == GLOBAL) {
-            register_global_wheel_event(
+            twr_register_global_wheel_event(
                EVENT_HANDLER.wheel_event_id
             );
             send_global_wheel_event(
@@ -1028,7 +1028,7 @@ void run_next_event() {
                args->delta_z, args->delta_mode
             );
          } else {
-            register_local_wheel_event(
+            twr_register_local_wheel_event(
                EVENT_HANDLER.wheel_event_id,
                event->local_args.supposed_to_timeout ? event->local_args.element2_id : event->local_args.element_id
             );
@@ -1074,7 +1074,7 @@ void test_key_and_stop_key_press(int event_id, long key_code) {
       }
       //test stopping event
       TEST_KEY_PRESS_AND_STOP_STATE = 1; //testing for timeout from key press
-      stop_ui_event(TEST_KEY_AND_STOP_EXTRA_ID); //stop key press event
+      twr_stop_ui_event(TEST_KEY_AND_STOP_EXTRA_ID); //stop key press event
       //get new event id for next timer so previous one is ignored
       TEST_KEY_AND_STOP_EVENT_TIMEOUT_ID = twr_register_callback("testKeyAndStopTimeout");
       twr_timer_single_shot(1000, TEST_KEY_AND_STOP_EVENT_TIMEOUT_ID); //call next timer, should fail
@@ -1180,7 +1180,7 @@ void animation_loop_test_start() {
    printf("Animation Loop Test: ");
    //start test
    ANIMATION_LOOP_STATE.animation_event_id = twr_register_callback("AnimationLoopHandler");
-   register_animation_loop(ANIMATION_LOOP_STATE.animation_event_id);
+   twr_register_animation_loop(ANIMATION_LOOP_STATE.animation_event_id);
    ANIMATION_LOOP_STATE.timeout_event_id = twr_register_callback("AnimationLoopTimeoutHandler");
    twr_timer_single_shot(ANIMATION_LOOP_TIMEOUT, ANIMATION_LOOP_STATE.timeout_event_id);
 
@@ -1188,7 +1188,7 @@ void animation_loop_test_start() {
 
 // ---------- Test Runner ----------
 void run_next_test() {
-   stop_all_ui_events(); //stop all ui events
+   twr_stop_all_ui_events(); //stop all ui events
    switch (CURRENT_TEST) {
       case 0:
       {

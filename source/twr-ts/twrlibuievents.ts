@@ -20,16 +20,16 @@ export default class jsEventsLib extends twrLibrary {
       twrRegisterGlobalKeyEvent: {},
       twrRegisterLocalKeyEvent: {},
       
-      registerAnimationLoop: {},
+      twrRegisterAnimationLoop: {},
 
       twrRegisterGlobalMouseEvent: {},
       twrRegisterLocalMouseEvent: {},
 
-      registerGlobalWheelEvent: {},
-      registerLocalWheelEvent: {},
+      twrRegisterGlobalWheelEvent: {},
+      twrRegisterLocalWheelEvent: {},
 
-      stopUIEvent: {},
-      stopAllUIEvents: {}
+      twrStopUIEvent: {},
+      twrStopAllUIEvents: {}
    };
 
    // every library should have this line
@@ -113,7 +113,7 @@ export default class jsEventsLib extends twrLibrary {
       )
    }
 
-   registerAnimationLoop(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
+   twrRegisterAnimationLoop(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
       const intEventID = this.nextEventHandlerID++;
       if (!(callingMod.id in this.events)) this.events[callingMod.id] = {};
       this.events[callingMod.id][intEventID] = [EventType.AnimationLoop];
@@ -173,7 +173,7 @@ export default class jsEventsLib extends twrLibrary {
       )
    }
 
-   registerGlobalWheelEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
+   twrRegisterGlobalWheelEvent(callingMod:IWasmModule|IWasmModuleAsync, eventID: number) {
       return this.internalRegisterGlobalEvent(
          callingMod,
          'wheel',
@@ -183,7 +183,7 @@ export default class jsEventsLib extends twrLibrary {
       )
    }
 
-   registerLocalWheelEvent(callingMod: IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number) {
+   twrRegisterLocalWheelEvent(callingMod: IWasmModule|IWasmModuleAsync, eventID: number, elementIDPtr: number) {
       return this.internalRegisterLocalEvent(
          callingMod,
          this.internalGetElementByID(callingMod, elementIDPtr, "registerLocalWheelEvent"),
@@ -194,7 +194,7 @@ export default class jsEventsLib extends twrLibrary {
       )
    }
 
-   stopUIEvent(callingMod:IWasmModule|IWasmModuleAsync, eventHandlerID: number) {
+   twrStopUIEvent(callingMod:IWasmModule|IWasmModuleAsync, eventHandlerID: number) {
       if (!(eventHandlerID in this.events[callingMod.id])) throw new Error(`stop event was given an invalid eventHandlerID (${eventHandlerID})!`);
       const eventHandler = this.events[callingMod.id][eventHandlerID];
 
@@ -225,10 +225,10 @@ export default class jsEventsLib extends twrLibrary {
       delete this.events[callingMod.id][eventHandlerID];
    }
 
-   stopAllUIEvents(callingMod:IWasmModule|IWasmModuleAsync) {
+   twrStopAllUIEvents(callingMod:IWasmModule|IWasmModuleAsync) {
       for (const eventHandlerID in this.events[callingMod.id]) {
          if (this.events[callingMod.id][eventHandlerID] == undefined) throw new Error("what??");
-         this.stopUIEvent(callingMod, eventHandlerID as any as number);
+         this.twrStopUIEvent(callingMod, eventHandlerID as any as number);
       }
    }
 }
