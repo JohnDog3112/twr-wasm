@@ -126,34 +126,34 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas {
       return this.getProp(propName);
    }
 
-   internalLoadImage(mod: IWasmModule|IWasmModuleAsync, urlPtr: number, id: number, ret: (status: number) => void) {
-      const url = mod.wasmMem.getString(urlPtr);
-      const fullID = calculateID(mod, id);
-      if ( fullID in this.precomputedObjects ) console.log("warning: D2D_LOADIMAGE ID already exists.");
+   internalLoadImage(mod: IWasmModule|IWasmModuleAsync, urlPtr: number, id: number): Promise<number> {
+      return new Promise((resolve) => {
+         const url = mod.wasmMem.getString(urlPtr);
+         const fullID = calculateID(mod, id);
+         if ( fullID in this.precomputedObjects ) console.log("warning: D2D_LOADIMAGE ID already exists.");
 
-      const img = new Image();
-      img.onload = () => {
-         ret(1); //call given function saying it was successfull
-      };
-      img.onerror = () => {
-         console.log("Warning: D2D_LOADIMAGE: failed to load iamge " + url);
-         ret(0); //call given function saying it failed
-      }
+         const img = new Image();
+         img.onload = () => {
+            resolve(1); //return succesfull
+         };
+         img.onerror = () => {
+            console.log("Warning: D2D_LOADIMAGE: failed to load iamge " + url);
+            resolve(0); //return fail
+         }
 
-      img.src = url;
-      this.precomputedObjects[fullID] = img;
+         img.src = url;
+         this.precomputedObjects[fullID] = img;
+      })
    }
    twrConLoadImage_async(mod: IWasmModuleAsync, urlPtr: number, id: number) : Promise<number> {
-      return new Promise( (resolve)=>{
-         this.internalLoadImage(mod, urlPtr, id, (status: number) => resolve(status));
-      });
+      return this.internalLoadImage(mod, urlPtr, id);
    }
    
    twrConLoadImageAsync(mod: IWasmModule|IWasmModuleAsync, urlPtr: number, id: number, eventID: number | undefined) {
-      if (eventID != undefined)
-         this.internalLoadImage(mod, urlPtr, id, (status: number) => mod.postEvent(eventID, status));
-      else
-         this.internalLoadImage(mod, urlPtr, id, (status: number) => {});
+      const imgPromise = this.internalLoadImage(mod, urlPtr, id);
+      if (eventID != undefined) {
+         imgPromise.then((status: number) => mod.postEvent(eventID, status))
+      }
    }
 
    /* see draw2d.h for structs that match */
