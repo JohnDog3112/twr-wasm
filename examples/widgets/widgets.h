@@ -2,35 +2,28 @@
 #include <stdlib.h>
 
 enum twrWidgetEventType {
-   TWR_WIDGET_EVENT_KEYBOARD,
-   TWR_WIDGET_EVENT_MOUSE,
-   TWR_WIDGET_REQUEST_ANIMATION_FRAME,
-   TWR_WIDGET_WHEEL,
-};
-struct twrWidgetEventBase {
-   enum twrWidgetEventType type;
-};
-
-enum twrWidgetKeyboardEventType {
    TWR_WIDGET_EVENT_KEY_UP,
-   TWR_WIDGET_EVENT_KEY_DOWN
-};
-struct twrWidgetKeyboardEvent {
-   struct twrWidgetEventBase base;
-   enum twrWidgetKeyboardEventType type;
-   int key;
-};
-
-enum twrWidgetMouseEventType {
+   TWR_WIDGET_EVENT_KEY_DOWN,
    TWR_WIDGET_EVENT_MOUSE_MOVE,
    TWR_WIDGET_EVENT_MOUSE_DOWN,
    TWR_WIDGET_EVENT_MOUSE_UP,
    TWR_WIDGET_EVENT_MOUSE_CLICK,
    TWR_WIDGET_EVENT_MOUSE_DBLCLICK,
+   TWR_WIDGET_REQUEST_ANIMATION_FRAME,
+   TWR_WIDGET_WHEEL,
 };
+#define TWR_LAST_WIDGET_EVENT_TYPE TWR_WIDGET_WHEEL
+struct twrWidgetEventBase {
+   enum twrWidgetEventType type;
+};
+
+struct twrWidgetKeyboardEvent {
+   struct twrWidgetEventBase base;
+   int key;
+};
+
 struct twrWidgetMouseEvent {
    struct twrWidgetEventBase base;
-   enum twrWidgetMouseEventType type;
    int page_x;
    int page_y;
    int relative_x;
@@ -50,14 +43,9 @@ struct twrWidgetWheelEvent {
    int delta_mode;
 };
 
-union twrEventRegistrationUnion {
-   enum twrWidgetKeyboardEventType keyboard_type;
-   enum twrWidgetMouseEventType mouse_type;
-};
 struct twrEventRegistration {
    enum twrWidgetEventType base_type;
-   union twrEventRegistrationUnion secondary_type;
-   void (*event)(struct twrWidgetEventBase, void *);
+   void (*callback)(struct twrWidgetEventBase, void *);
 };
 
 
@@ -75,6 +63,61 @@ struct twrWidgetBase {
 
 
 
+struct twrDoublyLinkedList {
+   struct twrDoublyLinkedList* next;
+   struct twrDoublyLinkedList* prev;
+   
+   void* val;
+};
+struct twrDoublyLinkedListRoot {
+   struct twrDoublyLinkedList* root;
+   struct twrDoublyLinkedList* tail;
+};
+
+void twr_doubly_linked_list_append(struct twrDoublyLinkedListRoot* list, void* val) {
+   struct twrDoublyLinkedList* node = (struct twrDoublyLinkedList*)malloc(sizeof(struct twrDoublyLinkedList));
+   node->next = NULL;
+   node->prev = list->tail; //previous is tail
+   node->val = val;
+   
+   //list is empty
+   if (list->root == NULL) {
+      list->root = node;
+      list->tail = node;
+      return;
+   }
+
+   list->tail->next = node;
+   list->tail = node;
+}
+
+void twr_double_linked_list_remove(struct twrDoublyLinkedListRoot* list, struct twrDoublyLinkedList* node) {
+   //only item in list
+   if (list->root == node && list->tail == node) {
+      list->root = NULL;
+      list->tail = NULL;
+   } else if (list->root == node) { //first item in list
+      list->root = node->next;
+      list->root->prev = NULL;
+   } else if (list->tail == node) { //last item in list
+      list->tail = node->prev;
+      list->tail->next = NULL;
+   } else { //in the middle of list
+      node->prev->next = node->next;
+      node->next->prev = node->prev;
+   }
+
+   free(node);
+}
+
+#define TWR_TOTAL_WIDGET_EVENT_TYPES TWR_LAST_WIDGET_EVENT_TYPE+1
+struct twrWidgetManager {
+   struct twrDoublyLinkedList widgets;
+   struct twrDoublyLinkedList events[TWR_TOTAL_WIDGET_EVENT_TYPES];
+};
+
+
+
 struct twrWidgetButton {
    struct twrWidgetBase base;
    char* text;
@@ -85,6 +128,8 @@ struct twrWidgetButton {
    void (*onclick)(void *);
    void* onclick_data;
 
+   int hovering;
+
    int initialized;
    int text_x, text_y;
 };
@@ -92,24 +137,27 @@ struct twrWidgetButton {
 
 void twr_widget_button_draw(struct d2d_draw_seq* ds, void * self) {
    struct twrWidgetButton* button = (struct twrWidgetButton*)self;
+   struct twrWidgetBase* base = &button->base;
 
    d2d_save(ds);
    d2d_setfont(ds, button->text_font);
-   d2d_setfillstyle(ds, button->text_color);
 
    if (!button->initialized) {
       button->initialized = 1;
       //find text_x and text_y such that the provided text is centered
    }
 
-   
+   d2d_setfillstyle(ds, button->hovering ? button->hover_color : button->default_color);
+   d2d_fillrect(ds, base->x, base->y, base->x + base->width, base->y + base->height);
 
+   d2d_setfillstyle(ds, button->text_color);
    d2d_filltext(ds, button->text, button->text_x, button->text_y);
    
    d2d_restore(ds);
 }
+
 void twr_widget_button_event(struct twrWidgetEventBase event, void * self) {
-   assert(event.type == TWR_WIDGET_EVENT_MOUSE_CLICK);
+   assert(event.type == TWR_WIDGET_EVENT_MOUSE_CLICK || event.type == TWR_WIDGET_EVENT_MOUSE_MOVE);
    struct twrWidgetMouseEvent* mouse_event = (struct twrWidgetMouseEvent*)&event;
 
    struct twrWidgetButton* button = (struct twrWidgetButton*)self;
@@ -119,12 +167,13 @@ void twr_widget_button_event(struct twrWidgetEventBase event, void * self) {
       base->x <= mouse_event->relative_x && mouse_event->relative_x <= base->x + base->width
       && base->y <= mouse_event->relative_y && mouse_event->relative_y <= base->y + base->height
    ) {
-      button->onclick(button->onclick_data);
+      button->hovering = 1;
+      if (event.type == TWR_WIDGET_EVENT_MOUSE_CLICK)
+         button->onclick(button->onclick_data);
+   } else {
+      button->hovering = 0;
    }
 
-}
-void twr_widget_button_free(void * self) {
-   free(self);
 }
 struct twrWidgetButton new_button(int x, int y, int width, int height, char* text, char* text_font, char* text_color, char* default_color, char* hover_color, void (*onclick)(void *), void* onclick_data) {
    return twrWidgetButton {
@@ -136,15 +185,18 @@ struct twrWidgetButton new_button(int x, int y, int width, int height, char* tex
          .height = height,
          .visible = 1,
          .draw = twr_widget_button_draw,
-         .free = twr_widget_button_free,
+         .free = NULL, //nothing to free
          
-         .num_events = 1,
-         .event_registrations = &(struct twrEventRegistration){
-            .base_type = TWR_WIDGET_EVENT_MOUSE,
-            .secondary_type = {
-               .mouse_type = TWR_WIDGET_EVENT_MOUSE_CLICK
+         .num_events = 2,
+         .event_registrations = (struct twrEventRegistration[2]){
+            {
+               .base_type = TWR_WIDGET_EVENT_MOUSE_CLICK,
+               .callback = twr_widget_button_event
             },
-            .event = twr_widget_button_event
+            {
+               .base_type = TWR_WIDGET_EVENT_MOUSE_MOVE,
+               .callback = twr_widget_button_event
+            }
          }
       },
       .text = text,
@@ -154,6 +206,8 @@ struct twrWidgetButton new_button(int x, int y, int width, int height, char* tex
       .hover_color = hover_color,
       .onclick = onclick,
       .onclick_data = onclick_data,
+
+      .hovering = 0,
 
       .initialized = 0,
    };
