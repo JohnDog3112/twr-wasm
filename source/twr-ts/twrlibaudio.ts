@@ -316,18 +316,13 @@ export default class twrLibAudio extends twrLibrary {
       return this.twrAudioPlayRange(mod, nodeID, 0, null, false, null, volume, pan, finishCallback);
    }
 
-   internalAudioPlayRange(mod: IWasmModuleAsync|IWasmModule, nodeID: number, startSample: number, endSample: number | null, loop: boolean, sampleRate: number | null, volume: number, pan: number): [Promise<number>, number] {
-      const fullID = calculateID(mod, nodeID);
-      if (!(fullID in this.nodes)) throw new Error(`twrLibAudio twrAudioPlayNode was given a non-existant nodeID (${fullID})!`);
-
+   internalAudioPlayRangeNode(mod: IWasmModuleAsync|IWasmModule, node: Node, playbackID: number, startSample: number, endSample: number | null, loop: boolean, sampleRate: number | null, volume: number, pan: number): [Promise<number>, number] {
       if (sampleRate == 0) { //assume a 0 sample_rate is just normal speed or null
          sampleRate = null;
       }
 
-      const node = this.nodes[fullID];
 
-      let id = this.internalGetNextPlaybackID(mod);
-      const fullPlaybackID = calculateID(mod, id);
+      const fullPlaybackID = calculateID(mod, playbackID);
       let promise: Promise<number>;
 
       switch (node[0]) {
@@ -344,7 +339,7 @@ export default class twrLibAudio extends twrLibrary {
             promise = new Promise((resolve, reject) => {
                sourceBuffer.onended = () => {
                   delete this.playbacks[fullPlaybackID];
-                  resolve(id);
+                  resolve(playbackID);
                }
             });
             
@@ -377,7 +372,19 @@ export default class twrLibAudio extends twrLibrary {
             throw new Error(`twrAudioPlayNode unknown type! ${node[0]}`);
       }
 
-      return [promise, id];
+      return [promise, playbackID];
+   }
+
+   internalAudioPlayRange(mod: IWasmModuleAsync|IWasmModule, nodeID: number, startSample: number, endSample: number | null, loop: boolean, sampleRate: number | null, volume: number, pan: number): [Promise<number>, number] {
+      const fullID = calculateID(mod, nodeID);
+      if (!(fullID in this.nodes)) throw new Error(`twrLibAudio twrAudioPlayNode was given a non-existant nodeID (${fullID})!`);
+
+      const node = this.nodes[fullID];
+
+      let id = this.internalGetNextPlaybackID(mod);
+
+      return this.internalAudioPlayRangeNode(mod, node, id, startSample, endSample, loop, sampleRate, volume, pan);
+      
    }
 
    twrAudioPlayRange(mod: IWasmModuleAsync|IWasmModule, nodeID: number, startSample: number, endSample: number | null = null, loop: boolean = false, sampleRate: number | null = null, volume: number = 1, pan: number = 0, finishCallback: number | null = null) {
@@ -623,12 +630,29 @@ export default class twrLibAudio extends twrLibrary {
          delete this.playbacks[fullPlaybackID];
       };
 
-      audio.play().catch(e => {
-         console.log(`twrAudioPlayFile error: ${e}`);
-         delete this.playbacks[fullPlaybackID];
-      });
-      
       this.playbacks[fullPlaybackID] = [NodeType.HTMLAudioElement, audio];
+
+      audio.play().catch(async (e: DOMException) => {
+         
+         if (!(fullPlaybackID in this.playbacks)) return;
+
+         //if on something like apple where a button press is needed
+         if (e.name == "NotAllowedError") {
+            //play using the audio context
+            const res = await fetch(fileURL);
+            const buffer = await this.context.decodeAudioData(await res.arrayBuffer());
+            const sample_rate = buffer.sampleRate * playbackRate;
+            if (!(fullPlaybackID in this.playbacks)) return;
+            this.internalAudioPlayRangeNode(mod, [NodeType.AudioBuffer, buffer], playbackID, 0, null, loop, sample_rate, volume, 0.0);
+            console.log(this.playbacks[fullPlaybackID]);
+         } else if (e.name == "AbortError") {
+            
+         } else {
+            console.log(`twrAudioPlayFile error: ${e.name}`);
+            delete this.playbacks[fullPlaybackID];
+         }
+         
+      });
 
       return playbackID;
    }

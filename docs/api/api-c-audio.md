@@ -63,6 +63,8 @@ Functions that end in `_sync` are for use with `twrWamModuleAsync`, and are sync
 
 Note that on some platforms, sounds that are too short might not play correctly.  This is true in JavaScript as well.
 
+`twr_audio_play_file` and `twr_audio_play_file_ex` use the HTMLAudioElement to load and play the audio. However, Safari applies permissions to HTMLAudioElements weirdly so, on Safari, playing from a file fetches the entire audio file and plays it similarily to `twr_audio_load` and `twr_play_audio`.
+
 ## Functions
 These are the current Audio APIs available in C/C++:
 
