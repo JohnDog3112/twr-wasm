@@ -25,10 +25,8 @@ struct twrWidgetKeyboardEvent {
 
 struct twrWidgetMouseEvent {
    struct twrWidgetEventBase base;
-   int page_x;
-   int page_y;
-   int relative_x;
-   int relative_y;
+   int x;
+   int y;
 };
 
 struct twrWidgetRequestAnimationFrameEvent {
@@ -127,6 +125,87 @@ void twr_double_linked_list_remove(struct twrDoublyLinkedListRoot* list, struct 
    free(node);
 }
 
+struct DynamicArray {
+   void* arr;
+   long length;
+   long max_length;
+   size_t data_size;
+};
+
+void twr_dynamic_arr_init(struct DynamicArray* arr, long initial_size, size_t data_size) {
+   arr->arr = malloc(data_size * initial_size);
+   arr->length = 0;
+   arr->max_length = initial_size;
+   arr->data_size = data_size;
+}
+
+void twr_dynamic_arr_append(struct DynamicArray* arr, void* item) {
+   //if array is full:
+   // Create a new array twice the size
+   // Copy old array to new array
+   // Free old array
+   // Set new array to the one being used
+   if (arr->length >= arr->max_length) {
+      void* newArr = malloc(arr->data_size * arr->max_length * 2);
+      memcpy(newArr, arr->arr, arr->max_length * arr->data_size);
+      free(arr->arr);
+      arr->arr = newArr;
+      arr->max_length *= 2;
+   }
+
+   //copy data from the item being appended to end of array
+   memcpy(arr->arr + arr->length*arr->data_size, item, arr->data_size);
+   //increase saved length
+   arr->length++;
+}
+
+void twr_dynamic_arr_pop(struct DynamicArray* arr, void* buffer) {
+   if (arr->length == 0) {
+      fprintf(stderr, "twr_dynamic_arr_pop tried to pop from an empty array!");
+      abort();
+   }
+
+   arr->length--;
+   memcpy(buffer, arr->arr + arr->length*arr->data_size, arr->data_size); 
+}
+
+void twr_dynamic_arr_insert(struct DynamicArray* arr, long index, void* item) {
+   if (index < 0 || index > arr->length) {
+      fprintf(stderr, "twr_dynamic_arr_insert index out of bounds (%ld)!", index);
+      abort;
+   }
+
+   if (arr->length == arr->max_length) {
+      void* newArr = malloc(arr->data_size * arr->max_length * 2);
+      //copy items before index to new array
+      if (index != 0)
+         memcpy(newArr, arr->arr, index*arr->data_size);
+      //insert item
+      memcpy(newArr + index*arr->data_size, item, arr->data_size);
+      //copy items after index to new array
+      if (index < arr->max_length)
+         memcpy(newArr + (index+1)*arr->data_size, arr->arr + index*arr->data_size, arr->data_size*(arr->length - index));
+   } else {
+      //todo
+   }
+}
+void twr_dynamic_arr_remove(struct DynamicArray* arr, long index, void* buffer) {
+   if (index < 0 || index >= arr->length) {
+      fprintf(stderr, "twr_dynamic_arr_remove index out of bounds (%ld)!", index);
+      abort();
+   }
+
+   memcpy(buffer, arr->arr + index*arr->data_size, arr->data_size);
+   
+   if (index != arr->length-1) {
+      memcpy(arr->arr + index*arr->data_size, arr->arr + (index+1)*arr->data_size, arr->data_size*(arr->length - index - 1));
+   }
+
+   arr->length--;
+}
+
+
+
 #define TWR_TOTAL_WIDGET_EVENT_TYPES TWR_LAST_WIDGET_EVENT_TYPE+1
 struct twrWidgetManager {
    //stores twrRegisterdWidget
@@ -188,10 +267,8 @@ void twr_widget_manager_mouse_event(struct twrWidgetManager* manager, enum twrWi
       .base = {
          .type = event_type,
       },
-      .page_x = page_x,
-      .page_y = page_y,
-      .relative_x = relative_x,
-      .relative_y = relative_y
+      .x = page_x,
+      .y = page_y,
    };
    twr_widget_manager_send_event(manager, event_type, &event.base);
 }
@@ -267,8 +344,8 @@ int twr_widget_button_event(struct twrWidgetEventBase* event, void * self) {
    struct twrWidgetBase* base = &button->base;
 
    if (
-      base->x <= mouse_event->relative_x && mouse_event->relative_x <= base->x + base->width
-      && base->y <= mouse_event->relative_y && mouse_event->relative_y <= base->y + base->height
+      base->x <= mouse_event->x && mouse_event->x <= base->x + base->width
+      && base->y <= mouse_event->y && mouse_event->y <= base->y + base->height
    ) {
       button->hovering = 1;
       if (event->type == TWR_WIDGET_EVENT_MOUSE_CLICK)
