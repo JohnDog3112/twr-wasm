@@ -71,7 +71,8 @@ interface ICallCPromise {
 }
     
 export class twrWasmModuleAsync implements IWasmModuleAsync {
-   myWorker:Worker;
+   myWorker:WeakRef<Worker>;
+   strongWorker: Worker;
    loadWasmResolve?: (value: void) => void;
    loadWasmReject?: (reason?: any) => void;
    callCMap:Map<number, ICallCPromise>;
@@ -125,13 +126,35 @@ export class twrWasmModuleAsync implements IWasmModuleAsync {
 
       if (!window.Worker) throw new Error("This browser doesn't support web workers.");
       const url=new URL('twrmodasyncproxy.js', import.meta.url);
-      this.myWorker = new Worker(url, {type: "module" });
-      this.myWorker.onerror = (event: ErrorEvent) => {
+      this.strongWorker = new Worker(url, {type: "module" });
+      this.myWorker = new WeakRef(this.strongWorker);
+      this.strongWorker.onerror = (event: ErrorEvent) => {
          console.log("this.myWorker.onerror (undefined message typically means Worker failed to load)");
          console.log("event.message: "+event.message)
          throw event;
       };
-      this.myWorker.onmessage= this.processMsg.bind(this);
+      const registry = new FinalizationRegistry(() => {
+         console.log("async worker collected!");
+      });
+      registry.register(this, null);
+      const weakThis = new WeakRef(this);
+      const weakWorker = this.myWorker;
+      const intervalID = setInterval(() => {
+         if (weakThis.deref() == undefined) {
+            console.log("twrWasmModuleAsync collected!");
+            weakWorker.deref()?.terminate();
+            clearInterval(intervalID);
+         }
+      }, 1000);
+      const workerIntervalID = setInterval(() => {
+         if (weakWorker.deref() == undefined) {
+            console.log("twrWasmModule async worker collected!");
+            clearInterval(workerIntervalID);
+         } else {
+            console.log("hello?");
+         }
+      }, 1000);
+      this.strongWorker.onmessage= (param: any) => weakThis.deref()!.processMsg(param);
 
       this.log=logToCon.bind(undefined, this.io.stdio);
       this.divLog=this.log;
@@ -162,13 +185,13 @@ export class twrWasmModuleAsync implements IWasmModuleAsync {
          };
          const urlToLoad = new URL(pathToLoad, document.URL);
          const startMsg:TModAsyncProxyStartupMsg={ urlToLoad: urlToLoad.href, allProxyParams: allProxyParams};
-         this.myWorker.postMessage(['startup', startMsg]);
+         this.myWorker.deref()!.postMessage(['startup', startMsg]);
       });
    }
 
    postEvent(eventID:number, ...params:number[]) {
       this.eventQueueSend.postEvent(eventID, ...params);
-      this.myWorker.postMessage(['tickleEventLoop']);
+      this.myWorker.deref()!.postMessage(['tickleEventLoop']);
    }
 
    async callC(params:[string, ...(string|number|bigint|ArrayBuffer)[]]) {
@@ -185,7 +208,7 @@ export class twrWasmModuleAsync implements IWasmModuleAsync {
             callCReject: reject
          }
          this.callCMap.set(++this.uniqueInt, p);
-         this.myWorker.postMessage(['callC', this.uniqueInt, fname, cparams]);
+         this.myWorker.deref()!.postMessage(['callC', this.uniqueInt, fname, cparams]);
       });
    }
 
@@ -203,7 +226,7 @@ export class twrWasmModuleAsync implements IWasmModuleAsync {
          }
         this.callCMap.set(++this.uniqueInt, p);
          this.eventQueueSend.postMalloc(this.uniqueInt, size);
-         this.myWorker.postMessage(['tickleEventLoop']);
+         this.myWorker.deref()!.postMessage(['tickleEventLoop']);
       });
    }
    

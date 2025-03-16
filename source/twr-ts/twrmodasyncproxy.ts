@@ -60,6 +60,15 @@ export class twrWasmModuleAsyncProxy extends twrWasmBase {
       this.ioNamesToID=allProxyParams.ioNamesToID;
       this.eventQueueReceive=new twrEventQueueReceive(this, allProxyParams.eventQueueBuffer);
 
+      const weakThis = new WeakRef(this);
+      const intervalID = setInterval(() => {
+         if (weakThis.deref() == undefined) {
+            console.log("twrWasmModuleAsyncProxy collected!");
+            clearInterval(intervalID);
+         } else {
+            console.log("hi!!!")
+         }
+      }, 1000)
    }
          
    async loadWasm(pathToLoad: string): Promise<void> {

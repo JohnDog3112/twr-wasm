@@ -34,7 +34,21 @@
             await mod.loadWasm(is_async ? "./window-a.wasm" : "./window.wasm");
 
             await mod.callC(["init"]);
-            
+
+            const registry = new FinalizationRegistry(() => {
+               console.log("async worker collected!");
+            });
+            registry.register(mod, "hi");
+            const testMod = new WeakRef(mod);
+            let intervalID;
+            intervalID = setInterval(() => {
+               if (testMod.deref() == undefined) {
+                  clearInterval(intervalID);
+                  console.log("wasm module has been collected!!!");
+               }
+            }, 100);
+            // window.mod = mod;
+
             const windowDiv = document.getElementById("window-resizable-div");
             if (windowDiv == undefined) throw new Error(`Window example: couldn't find window canvas div!`);
             // window.windowConsole = windowConsole;
@@ -51,6 +65,9 @@
                }
             });
             resizeObserver.observe(windowDiv);
+
+            window.modCon = modCon;
+            window.is_async = is_async;
          </script>
     </body>
 </html>

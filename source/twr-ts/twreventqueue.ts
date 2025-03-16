@@ -24,7 +24,7 @@ export class twrEventQueueReceive {
    circBuffer: twrSharedCircularBuffer;
    pendingEventIDs: number[];
    pendingEventArgs: (number[])[];
-   ownerMod:twrWasmModuleAsyncProxy;
+   ownerMod:WeakRef<twrWasmModuleAsyncProxy>;
    static unqiueInt:number=1;
    static onEventCallbacks:(TOnEventCallback|undefined)[]=[];
 
@@ -32,7 +32,7 @@ export class twrEventQueueReceive {
       this.circBuffer=new twrSharedCircularBuffer(eventQueueBuffer);
       this.pendingEventIDs=[];
       this.pendingEventArgs=[];
-      this.ownerMod=ownerMod;
+      this.ownerMod=new WeakRef(ownerMod);
    }
 
    private readEventRemainder() {
@@ -59,7 +59,7 @@ export class twrEventQueueReceive {
       if (mallocID===undefined) throw new Error ("internal error");
       const size=this.circBuffer.read();
       if (size===undefined) throw new Error ("internal error");
-      const ptr=this.ownerMod.wasmMem.malloc(size);
+      const ptr=this.ownerMod.deref()!.wasmMem.malloc(size);
       postMessage(["twrWasmModule", mallocID, "callCOkay", ptr]); // we are in the twrWasmModuleAsyncProxy main thread
    }
 

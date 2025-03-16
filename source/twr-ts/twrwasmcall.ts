@@ -12,19 +12,19 @@ import {twrWasmMemory, twrWasmMemoryAsync} from "./twrwasmmem";
 
 
 export class twrWasmCall {
-   exports: WebAssembly.Exports;
-   mem: twrWasmMemory;
+   exports: WeakRef<WebAssembly.Exports>;
+   mem: WeakRef<twrWasmMemory>;
 
    constructor(mem:twrWasmMemory, exports:WebAssembly.Exports) {
       if (!exports) throw new Error("WebAssembly.Exports undefined");
 
-      this.exports=exports;
-      this.mem=mem;
+      this.exports=new WeakRef(exports);
+      this.mem=new WeakRef(mem);
    }
 
    callCImpl(fname:string, cparams:(number|bigint)[]=[]) {
-      if (!this.exports[fname]) throw new Error("callC: function '"+fname+"' not in export table.  Use --export wasm-ld flag.");
-      const f = this.exports[fname] as Function;
+      if (!this.exports.deref()![fname]) throw new Error("callC: function '"+fname+"' not in export table.  Use --export wasm-ld flag.");
+      const f = this.exports.deref()![fname] as Function;
       let cr=f(...cparams);
 
       return cr;
@@ -53,14 +53,14 @@ export class twrWasmCall {
                cparams[ci++]=p;
                break;
             case 'string':
-               cparams[ci++]=this.mem.putString(p);
+               cparams[ci++]=this.mem.deref()!.putString(p);
                break;
             case 'object':
                if (p instanceof URL) {
                   throw new Error("URL arg in callC is no longer supported directly.  use module.fetchAndPutURL");
                }
                else if (p instanceof ArrayBuffer) {
-                  const r=this.mem.putArrayBuffer(p);
+                  const r=this.mem.deref()!.putArrayBuffer(p);
                   cparams[ci++]=r;  // mem index
                   break;
                }
@@ -99,7 +99,7 @@ export class twrWasmCall {
                   const u8=new Uint8Array(p);
                   const idx=cparams[ci] as number;
                   for (let j=0; j<u8.length; j++) 
-                     u8[j]=this.mem.mem8u[idx+j];  
+                     u8[j]=this.mem.deref()!.mem8u[idx+j];  
                   this.callCImpl('free',[idx])
                   ci++;
                   break;

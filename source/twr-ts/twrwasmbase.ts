@@ -23,10 +23,16 @@ export abstract class twrWasmBase {
    /*********************************************************************/
 
    private getImports(imports:WebAssembly.ModuleImports) {
+      const thisWeakRef = new WeakRef(this);
+      const bindWeakRef = (func: Function) => {
+         return (...params: any) => {
+            return func.bind(thisWeakRef.deref()!)(...params);
+         }
+      };
       return {
          ...imports, 
-         twr_register_callback:this.registerCallbackImpl.bind(this),
-         twrConGetIDFromName:this.twrConGetIDFromNameImpl.bind(this)
+         twr_register_callback:bindWeakRef(this.registerCallbackImpl),
+         twrConGetIDFromName:bindWeakRef(this.twrConGetIDFromNameImpl)
       }
    }
 

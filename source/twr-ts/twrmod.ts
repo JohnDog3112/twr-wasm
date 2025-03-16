@@ -110,6 +110,18 @@ export class twrWasmModule extends twrWasmBase implements IWasmModule {
 
       await super.loadWasm(pathToLoad, imports);
 
+      const registry = new FinalizationRegistry(() => {
+         console.log("module collected!");
+      });
+      registry.register(this, null);
+      const weakThis = new WeakRef(this);
+      let intervalID = setInterval(() => {
+         if (weakThis.deref() == undefined) {
+            console.log("twrWasmModule collected!")
+            clearInterval(intervalID);
+         }
+      }, 1000);
+
       if (!(this.wasmMem.memory.buffer instanceof ArrayBuffer))
          console.log("twrWasmModule does not require shared Memory. Okay to remove wasm-ld --shared-memory --no-check-features");
 

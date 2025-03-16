@@ -91,18 +91,21 @@ export abstract class twrLibrary  {
                // but the actual instance needs to be retrieved at runtime using the libID & registry
                // since only once set of WasmImports is created for each class
 
-               const libFunc = (funcName: string, mod:IWasmModule, libID:number, ...params: any[]):any => {
+               const libFunc = (funcName: string, mod:WeakRef<IWasmModule>, libID:number, ...params: any[]):any => {
                   const lib=twrLibraryInstanceRegistry.getLibraryInstance(libID);
                   const derivedLib=(lib as unknown) as {[key:string]:(callingMod:IWasmModule, ...params:any)=>void};
                   const f=derivedLib[funcName];
                   if (!f) throw new Error(`Library function not found. id=${libID}, funcName=${funcName}`);
-                  return f.call(derivedLib, mod, ...params);
+                  return f.call(derivedLib, mod.deref()!, ...params);
                }
                
-               wasmImports[funcName]=libFunc.bind(null, funcName, callingMod);  // rest of function args are also passed to libFunc when using bind
+               wasmImports[funcName]=libFunc.bind(null, funcName, new WeakRef(callingMod));  // rest of function args are also passed to libFunc when using bind
             }
             else {
-               wasmImports[funcName]=derivedInstanceThis[funcName].bind(this, callingMod);
+               const weakCallingMod = new WeakRef(callingMod);
+               wasmImports[funcName]=((...params: any) => {
+                  return derivedInstanceThis[funcName].bind(this)(weakCallingMod.deref()!, ...params);
+               }).bind(this);
             }
          }
       }
@@ -194,6 +197,7 @@ export class twrLibraryProxy {
       let wasmImports:{[key:string]: Function}={};
       let libClass;
 
+      const weakOwnerMod = new WeakRef(ownerMod);
    // now for each twrLibrary import, create the functions that will be added to wasm module imports
    for (let funcName in this.imports) {
 
@@ -206,14 +210,16 @@ export class twrLibraryProxy {
                const libMod=await import(this.libSourcePath);
                libClass=new libMod.default;
             }
-            wasmImports[funcName]=libClass[funcName].bind(libClass, ownerMod);
+            const weakLib = new WeakRef(libClass);
+            wasmImports[funcName]=(...params: any) => weakLib.deref()![funcName].bind(weakLib.deref()!, weakOwnerMod.deref()!)(...params);
          }
          else {
+            const weakThis = new WeakRef(this);
             if (this.imports[funcName].isAsyncFunction) {
-               wasmImports[funcName]=this.remoteProcedureCall.bind(this, ownerMod, funcName+"_async", this.imports[funcName].isAsyncFunction?true:false, this.imports[funcName].noBlock?-1:twrEventQueueReceive.registerEvent(), this.interfaceName);
+               wasmImports[funcName]=(...params: any[]) => weakThis.deref()!.remoteProcedureCall.bind(weakThis.deref()!, weakOwnerMod.deref()!, funcName+"_async", weakThis.deref()!.imports[funcName].isAsyncFunction?true:false, weakThis.deref()!.imports[funcName].noBlock?-1:twrEventQueueReceive.registerEvent(), weakThis.deref()!.interfaceName)(...params);
             }
             else {
-               wasmImports[funcName]=this.remoteProcedureCall.bind(this, ownerMod, funcName, this.imports[funcName].isAsyncFunction?true:false, this.imports[funcName].noBlock?-1:twrEventQueueReceive.registerEvent(), this.interfaceName);
+               wasmImports[funcName]=(...params: any[]) => weakThis.deref()!.remoteProcedureCall.bind(weakThis.deref()!, ownerMod, funcName, weakThis.deref()!.imports[funcName].isAsyncFunction?true:false, weakThis.deref()!.imports[funcName].noBlock?-1:twrEventQueueReceive.registerEvent(), weakThis.deref()!.interfaceName)(...params);
             }
          }
       }
