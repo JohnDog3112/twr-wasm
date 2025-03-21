@@ -154,6 +154,17 @@ class DoublyLinkedListNode<T> {
    
 }
 
+enum ResizedSides {
+   Top = 1,
+   Right = 2,
+   Bottom = 4,
+   Left = 8,
+
+   TopRight = ResizedSides.Top | ResizedSides.Right,
+   BottomRight = ResizedSides.Bottom | ResizedSides.Right,
+   BottomLeft = ResizedSides.Bottom | ResizedSides.Left,
+   TopLeft = ResizedSides.Top | ResizedSides.Left,
+}
 interface WindowInfo {
    window: twrConsoleWindow,
    x: number,
@@ -161,6 +172,11 @@ interface WindowInfo {
    hidden: boolean,
    orderNode?: DoublyLinkedListNode<WindowInfo>,
 };
+interface ResizeInfo {
+   resizeSide: ResizedSides
+   startX: number,
+   startY: number,
+}
 export default class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    id: number;
 
@@ -178,6 +194,12 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
    windows: Map<number, WindowInfo> = new Map();
    windowOrder: DoublyLinkedListRoot<WindowInfo> = new DoublyLinkedListRoot();
 
+   mouseX: number = 0;
+   mouseY: number = 0;
+   clickedWindow?: WindowInfo = undefined;
+   dragStart?: [number, number] = undefined;
+   resizeStart?: ResizeInfo = undefined;
+
    constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true) {
       // all library constructors should start with these two lines
       super();
@@ -190,17 +212,43 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
          bindCanvasEvents(this, this.canvas);
    }
 
-   spawnWindow(mod: IWasmModule | IWasmModuleAsync): number {
+   spawnWindow(mod?: IWasmModule | IWasmModuleAsync): number {
       const canvas = new HTMLCanvasElement();
       canvas.height = 100;
       canvas.width = 100;
-      const window = new twrConsoleWindow(canvas, false);
+      let weakWindowInfo: WeakRef<WindowInfo> | undefined;
+      const weakThis = new WeakRef(this);
+      const dragFunction = (x: number, y: number) => {
+         const strongThis = weakThis.deref();
+         const strongWindowInfo = weakWindowInfo?.deref();
+         if (!strongThis || !strongWindowInfo) return;
+         if (!strongThis.dragStart && strongThis.clickedWindow == strongWindowInfo) {
+            strongThis.dragStart = [
+               x + strongWindowInfo.x,
+               y + strongWindowInfo.y
+            ];
+         }
+      };
+      const resizeFunction = (x: number, y: number, side: ResizedSides) => {
+         const strongThis = weakThis.deref();
+         const strongWindowInfo = weakWindowInfo?.deref();
+         if (!strongThis || !strongWindowInfo) return;
+         if (!strongThis.resizeStart && strongThis.clickedWindow == strongWindowInfo) {
+            this.resizeStart = {
+               resizeSide: side,
+               startX: x + strongWindowInfo.x,
+               startY: y + strongWindowInfo.y,
+            };
+         }
+      };
+      const window = new twrConsoleWindow(canvas, false, dragFunction);
       const windowInfo: WindowInfo = {
          window: window,
          x: 20,
          y: 20,
          hidden: false
       };
+      weakWindowInfo = new WeakRef(windowInfo);
       this.windows.set(window.id, windowInfo);
       const node = this.windowOrder.createNodeAtFront(windowInfo);
       windowInfo.orderNode = node;
@@ -210,9 +258,22 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
 
    moveWindow(window: twrConsoleWindow, x: number, y: number) {
       const info = this.windows.get(window.id);
-      assertDefined(info, "Error! twrConsoleWindow moveWindow: Given a window not registered with this screen!");
+      assertDefined(info, "Error! twrConsoleWindow moveWindow: Given a window that isn't registered with this screen!");
       info.x = x;
       info.y = y;
+   }
+
+   closeWindow(window: twrConsoleWindow) {
+      const info = this.windows.get(window.id);
+      assertDefined(info, "Error! twrConsoleWindow closeWindow: Given a window that isn't registered with this screen!");
+
+      window.handleClose().then(() => {
+         if (this.clickedWindow == info) {
+            this.clickedWindow = undefined;
+         }
+         info.orderNode!.cutConnections();
+         this.windows.delete(window.id);
+      });
    }
 
    handleCanvasKeyEvent(event: CanvasEventTypes, key: number) {
@@ -222,14 +283,61 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
       }
       return true;
    }
-   mouseX: number = 0;
-   mouseY: number = 0;
-   clickedWindow?: WindowInfo = undefined;
    handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number) {
       this.mouseX = x;
       this.mouseY = y;
 
-      if (event == CanvasEventTypes.MOUSE_UP && this.clickedWindow) {
+      if (event == CanvasEventTypes.MOUSE_MOVE && this.resizeStart) {
+         assertDefined(this.clickedWindow);
+         let nX: number|undefined = undefined;
+         let nY: number|undefined = undefined;
+         let nXSize: number|undefined = undefined;
+         let nYSize: number|undefined = undefined;
+
+         if ((this.resizeStart.resizeSide | ResizedSides.Left) >= 0) {
+            nX = x;
+            nXSize = this.resizeStart.startX - x;
+         } else if ((this.resizeStart.resizeSide | ResizedSides.Right) >= 0) {
+            nXSize = x - this.resizeStart.startX;
+         }
+
+         if ((this.resizeStart.resizeSide | ResizedSides.Top) >= 0) {
+            nY = y;
+            nYSize = this.resizeStart.startY - y;
+         } else if ((this.resizeStart.resizeSide | ResizedSides.Bottom) >= 0) {
+            nYSize = x - this.resizeStart.startY;
+         }
+
+         if (nX != undefined)
+            this.clickedWindow.x = nX;
+         else if (nY != undefined)
+            this.clickedWindow.y = nY;
+         
+         if (nXSize != undefined || nYSize != undefined) {
+            this.clickedWindow.window.resizeWindow(
+               nXSize ?? this.clickedWindow.window.element.width,
+               nYSize ?? this.clickedWindow.window.element.height
+            );
+         }
+         return true;
+      } else if (event == CanvasEventTypes.MOUSE_MOVE && this.dragStart) {
+         assertDefined(this.clickedWindow);
+         this.moveWindow(
+            this.clickedWindow.window,
+            x - this.dragStart[0],
+            y - this.dragStart[1]
+         );
+         return true;
+      } else if (CanvasEventTypes.MOUSE_UP && this.dragStart) {
+         assertDefined(this.clickedWindow);
+         this.clickedWindow.window.handleCanvasMouseEvent(
+            event,
+            x - this.clickedWindow.x,
+            y - this.clickedWindow.y,
+            button
+         );
+         return true;
+      } else if (event == CanvasEventTypes.MOUSE_UP && this.clickedWindow) {
          this.clickedWindow.window.handleCanvasMouseEvent(
             event,
             x - this.clickedWindow.x,

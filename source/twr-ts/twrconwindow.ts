@@ -1679,7 +1679,9 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       ];
    }
 
-   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true) {
+   dragFunction: (x: number, y: number) => void; 
+
+   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
@@ -1700,6 +1702,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
       if (selfRegisterEvents)
          bindCanvasEvents(this, this.element);
+      this.dragFunction = dragfunction ?? (() => {});
 
       this.props = {
          //TODO: Figure out what type to add/use here
@@ -1795,6 +1798,8 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
       if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
 
+      } else if (y <= TOP_BAR_SIZE) {
+         this.dragFunction(x, y);
       } else if (
          n_x >= 0 && n_y >= 0
          && n_x <= this.drawCanvasWidth
@@ -2624,5 +2629,9 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
          this.internalSendEvent(WindowEventTypes.WindowResize, width, height);
       }).bind(this));
+   }
+
+   async handleClose() {
+      
    }
 }
