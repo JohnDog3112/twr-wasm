@@ -1,6 +1,7 @@
 import { bindCanvasEvents, CanvasEventTypes, ICanvasEvents } from "./twrcanvasevents.js";
 import { IConsole, IConsoleBaseProps, IConsoleEvents, IConsoleWindow } from "./twrcon.js";
 import twrConsoleCanvas from "./twrconcanvas.js";
+import { ResizedSides } from "./twrconscreen.js";
 import { TLibImports, twrLibrary, twrLibraryInstanceRegistry } from "./twrlibrary.js";
 import { IWasmModule } from "./twrmod";
 import { IWasmModuleAsync } from "./twrmodasync";
@@ -1679,9 +1680,10 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       ];
    }
 
-   dragFunction: (x: number, y: number) => void; 
+   dragFunction: (x: number, y: number) => void;
+   resizeFunction: (x: number, y: number, sides: ResizedSides) => void;
 
-   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number) => void) {
+   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
@@ -1703,6 +1705,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       if (selfRegisterEvents)
          bindCanvasEvents(this, this.element);
       this.dragFunction = dragfunction ?? (() => {});
+      this.resizeFunction = resizeFunction ?? (() => {});
 
       this.props = {
          //TODO: Figure out what type to add/use here
@@ -1796,7 +1799,20 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       const n_x = x - BORDER_SIZE;
       const n_y = y - TOP_BAR_SIZE;
 
-      if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
+      const resizeBorderSize: number = BORDER_SIZE;
+      const topSection = y <= resizeBorderSize;
+      const bottomSection = y >= this.element.height - resizeBorderSize;
+      const leftSection = x <= resizeBorderSize;
+      const rightSection = x >= this.element.width - resizeBorderSize;
+
+      const resizeSide: ResizedSides|number = (topSection ? ResizedSides.Top : 0)
+         | (bottomSection ? ResizedSides.Bottom : 0)
+         | (leftSection ? ResizedSides.Left : 0)
+         | (rightSection ? ResizedSides.Right : 0);
+
+      if (resizeSide != 0) {
+         this.resizeFunction(x, y, resizeSide);
+      } else if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
 
       } else if (y <= TOP_BAR_SIZE) {
          this.dragFunction(x, y);

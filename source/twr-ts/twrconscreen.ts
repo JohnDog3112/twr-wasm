@@ -154,7 +154,7 @@ class DoublyLinkedListNode<T> {
    
 }
 
-enum ResizedSides {
+export enum ResizedSides {
    Top = 1,
    Right = 2,
    Bottom = 4,
@@ -171,11 +171,17 @@ interface WindowInfo {
    y: number,
    hidden: boolean,
    orderNode?: DoublyLinkedListNode<WindowInfo>,
+   minXSize: number,
+   minYSize: number,
 };
 interface ResizeInfo {
    resizeSide: ResizedSides
    startX: number,
    startY: number,
+   windowStartX: number,
+   windowStartY: number,
+   windowStartXSize: number,
+   windowStartYSize: number,
 }
 export default class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    id: number;
@@ -238,15 +244,21 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
                resizeSide: side,
                startX: x + strongWindowInfo.x,
                startY: y + strongWindowInfo.y,
+               windowStartX: strongWindowInfo.x,
+               windowStartY: strongWindowInfo.y,
+               windowStartXSize: strongWindowInfo.window.element.width,
+               windowStartYSize: strongWindowInfo.window.element.height,
             };
          }
       };
-      const window = new twrConsoleWindow(canvas, false, dragFunction);
+      const window = new twrConsoleWindow(canvas, false, dragFunction, resizeFunction);
       const windowInfo: WindowInfo = {
          window: window,
          x: 20,
          y: 20,
-         hidden: false
+         hidden: false,
+         minXSize: 50,
+         minYSize: 50,
       };
       weakWindowInfo = new WeakRef(windowInfo);
       this.windows.set(window.id, windowInfo);
@@ -295,17 +307,47 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
          let nYSize: number|undefined = undefined;
 
          if ((this.resizeStart.resizeSide | ResizedSides.Left) >= 0) {
-            nX = x;
-            nXSize = this.resizeStart.startX - x;
+            nXSize = this.resizeStart.startX - x + this.resizeStart.windowStartXSize;
+            nX = x - this.resizeStart.startX + this.resizeStart.windowStartX;
+            if (nXSize >= this.clickedWindow.minXSize) {
+               if (this.clickedWindow.minXSize == this.clickedWindow.window.element.width) {
+                  nXSize = undefined;
+                  nX = undefined;
+               } else {
+                  nXSize = this.clickedWindow.minXSize;
+                  nX = this.resizeStart.windowStartX + this.resizeStart.windowStartXSize - this.clickedWindow.minXSize;
+               } 
+            }
          } else if ((this.resizeStart.resizeSide | ResizedSides.Right) >= 0) {
-            nXSize = x - this.resizeStart.startX;
+            nXSize = x - this.resizeStart.startX + this.resizeStart.windowStartXSize;
+            if (nXSize >= this.clickedWindow.minXSize) {
+               if (this.clickedWindow.minXSize == this.clickedWindow.window.element.width)
+                  nXSize = undefined
+               else
+                  nXSize = this.clickedWindow.minXSize;
+            }
          }
 
          if ((this.resizeStart.resizeSide | ResizedSides.Top) >= 0) {
-            nY = y;
-            nYSize = this.resizeStart.startY - y;
+            nYSize = this.resizeStart.startY - y + this.resizeStart.windowStartYSize;
+            nY = y - this.resizeStart.startY + this.resizeStart.windowStartY;
+            if (nYSize >= this.clickedWindow.minYSize) {
+               if (this.clickedWindow.minYSize == this.clickedWindow.window.element.height) {
+                  nYSize = undefined;
+                  nY = undefined;
+               } else {
+                  nYSize = this.clickedWindow.minYSize;
+                  nY = this.resizeStart.windowStartY + this.resizeStart.windowStartYSize - this.clickedWindow.minYSize;
+               }
+            }
          } else if ((this.resizeStart.resizeSide | ResizedSides.Bottom) >= 0) {
-            nYSize = x - this.resizeStart.startY;
+            nYSize = y - this.resizeStart.startY + this.resizeStart.windowStartYSize;
+            if (nYSize >= this.clickedWindow.minYSize) {
+               if (this.clickedWindow.minYSize == this.clickedWindow.window.element.height)
+                  nYSize = undefined;
+               else
+                  nYSize = this.clickedWindow.minYSize;
+            }
          }
 
          if (nX != undefined)
@@ -320,7 +362,7 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
             );
          }
          return true;
-      } else if (event == CanvasEventTypes.MOUSE_MOVE && this.dragStart) {
+      } if (event == CanvasEventTypes.MOUSE_MOVE && this.dragStart) {
          assertDefined(this.clickedWindow);
          this.moveWindow(
             this.clickedWindow.window,
@@ -328,8 +370,7 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
             y - this.dragStart[1]
          );
          return true;
-      } else if (CanvasEventTypes.MOUSE_UP && this.dragStart) {
-         assertDefined(this.clickedWindow);
+      } else if (event == CanvasEventTypes.MOUSE_MOVE && this.clickedWindow) {
          this.clickedWindow.window.handleCanvasMouseEvent(
             event,
             x - this.clickedWindow.x,
@@ -345,14 +386,8 @@ export default class twrConsoleScreen extends twrLibrary implements ICanvasEvent
             button
          );
          this.clickedWindow = undefined;
-         return true;
-      } else if (event == CanvasEventTypes.MOUSE_MOVE && this.clickedWindow) {
-         this.clickedWindow.window.handleCanvasMouseEvent(
-            event,
-            x - this.clickedWindow.x,
-            y - this.clickedWindow.y,
-            button
-         );
+         this.resizeStart = undefined;
+         this.dragStart = undefined;
          return true;
       }
 
