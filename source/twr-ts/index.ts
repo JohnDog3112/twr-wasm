@@ -9,7 +9,7 @@ export * from "./twrcondebug.js"
 export * from "./twrconcanvas.js"
 export * from "./twrlibrary.js"
 export * from "./twrconwindow.js"
-
+export * from "./twrconscreen.js"
 
 
 

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Screen Tests</title>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "twr-wasm": "../../lib-js/index.js"
+                }
+            }
+        </script>
+    </head>
+    <body>
+         <canvas id="screen" width="1500px" height="900px" tabindex="1"></canvas>
+
+         <script type="module">
+            "use strict";
+
+            import {twrWasmModule, twrWasmModuleAsync, twrConsoleWindow, twrConsoleScreen} from "twr-wasm";
+
+            const is_async = window.location.hash=="#async";
+
+            const modCon = is_async ? twrWasmModuleAsync : twrWasmModule;
+
+            // const windowCanvas = document.getElementById("window");
+            // if (windowCanvas == undefined) throw new Error(`Window example: Couldn't find window canvas!`);
+            // const windowConsole = new twrConsoleWindow(windowCanvas);
+            const screenCanvas = document.getElementById("screen");
+            if (screenCanvas == undefined) throw new Error(`Screen example: couldn't find screen canvas!`);
+            const screenConsole = new twrConsoleScreen(screenCanvas);
+            const windowConsole = screenConsole.jsSpawnWindow();
+            const mod = new modCon({io:{
+               window: windowConsole,
+            }});
+            await mod.loadWasm(is_async ? "../window/window-a.wasm" : "../window/window.wasm");
+
+            await mod.callC(["init"]);
+         </script>
+    </body>
+</html>

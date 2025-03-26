@@ -207,7 +207,7 @@ void window_resize_handler(int event_id, long width, long height) {
    canvas_width = io_get_prop(canvas_con, "canvasWidth");
    canvas_height = io_get_prop(canvas_con, "canvasHeight");
 
-   printf("new canvas size: %ld, %ld\n", canvas_width, canvas_height);
+   // printf("new canvas size: %ld, %ld\n", canvas_width, canvas_height);
 
    force_square_into_bounds();
 }

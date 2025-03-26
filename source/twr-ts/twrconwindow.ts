@@ -123,7 +123,7 @@ type MenuItemEventData = MenuItemHoverEvent
 // Globals used in widgets for a given window to specify things like:
 //    font, colors, spacing, etc.
 // can be updated from the program and values should propogate
-interface GlobalWidgetProperties {
+export interface GlobalWidgetProperties {
    borderColor: string,
    selectedColor: string,
    disabledColor: string,
@@ -144,7 +144,7 @@ interface GlobalWidgetProperties {
    radioMenuCheckedPrefix: string;
    radioMenuUncheckedPrefix: string;
 };
-enum PropBaseType {
+export enum PropBaseType {
    String = 1, //0b0001
    Boolean = 2,//0b0010
    Number = 4, //0b0100
@@ -153,15 +153,15 @@ enum PropBaseType {
    BooleanOrUndefined = 10,//0b1010 
    NumberOrUndefined = 12  //0b1100
 };
-enum PropPerms {
+export enum PropPerms {
    ReadOnly = 1,   //0b01
    SetOnly = 2,    //0b10
    ReadAndSet = 3, //0b11 -- Just addition of above two flags
 }
-interface ManagerAndWidgetCombined {
+export interface ManagerAndWidgetCombined {
    fullUpdate: (ctx: CanvasRenderingContext2D) => void;
 }
-interface WidgetManager extends ManagerAndWidgetCombined {
+export interface WidgetManager extends ManagerAndWidgetCombined {
    getCtx: () => CanvasRenderingContext2D;
    childUpdated: (ctx: CanvasRenderingContext2D, widget?: Widget, sendToRoot?: boolean) => void;
 
@@ -171,9 +171,9 @@ interface WidgetManager extends ManagerAndWidgetCombined {
 
    resendLastMove: () => void;
 }
-type PublicPropertiesType = { [propName: string]: [[undefined|(() => string|number|undefined|boolean), undefined|((val: any) => void)], PropBaseType]; };
+export type PublicPropertiesType = { [propName: string]: [[undefined|(() => string|number|undefined|boolean), undefined|((val: any) => void)], PropBaseType]; };
 
-interface Widget extends ManagerAndWidgetCombined {
+export interface Widget extends ManagerAndWidgetCombined {
    readonly globalProps: GlobalWidgetProperties;
    readonly parent: WidgetManager; 
    readonly id: number;
@@ -201,7 +201,7 @@ interface Widget extends ManagerAndWidgetCombined {
 }
 
 let NEXT_WIDGET_ID: number = 0;
-abstract class WidgetImpl implements Widget {
+export abstract class WidgetImpl implements Widget {
    readonly globalProps: GlobalWidgetProperties;
    readonly parent: WidgetManager;
    readonly id: number;
@@ -282,15 +282,15 @@ abstract class WidgetImpl implements Widget {
 //They aren't implemented on classes themselves, instead,
 // they are sort of auto implemented on any class that match their requirements
 // So this is "automatically" implemented on any class that implements the given constructor fields
-interface WidgetCreation<T extends Widget, U extends WidgetConstructor> {
+export interface WidgetCreation<T extends Widget, U extends WidgetConstructor> {
    new (ctx: CanvasRenderingContext2D, parent: WidgetManager, cons: U, globalProps: GlobalWidgetProperties): T
 }
 
-interface WidgetConstructor {
+export interface WidgetConstructor {
    width?: number;
    height?: number;
 }
-enum ButtonWidgetVerticalCenteringMethod {
+export enum ButtonWidgetVerticalCenteringMethod {
    //don't center the widget vertically
    None,
    //center it based on the font so all strings of the same font will be centered the same
@@ -298,7 +298,7 @@ enum ButtonWidgetVerticalCenteringMethod {
    //center it based on each individual string's minimum and maximum heights
    StringCentering
 }
-interface ButtonWidgetConstructor extends WidgetConstructor {
+export interface ButtonWidgetConstructor extends WidgetConstructor {
    text: string;
    prefixText?: string;
    suffixText?: string;
@@ -308,7 +308,7 @@ interface ButtonWidgetConstructor extends WidgetConstructor {
    reservePrefixSpace?: boolean;
 }
 
-abstract class ButtonBase extends WidgetImpl {
+export abstract class ButtonBase extends WidgetImpl {
    readonly handledEvents: MenuItemEvents[] = [
       MenuItemEvents.CLICKED,
       MenuItemEvents.HOVERING,
@@ -405,7 +405,7 @@ abstract class ButtonBase extends WidgetImpl {
          ? (this.getUsedWidth() - minWidth)/2.0
          : minPrefix;
       if (this.centeredHorizontally) {
-         console.log(`centered horizontally! ${this._text}`);
+         // console.log(`centered horizontally! ${this._text}`);
       }
       switch (this._verticalCentering) {
          case ButtonWidgetVerticalCenteringMethod.None:
@@ -563,7 +563,7 @@ abstract class ButtonBase extends WidgetImpl {
    abstract buttonPressed(ctx: CanvasRenderingContext2D): void;
 }
 
-class Button extends ButtonBase implements WidgetEvents {
+export class Button extends ButtonBase implements WidgetEvents {
    private events: Set<((ctx: CanvasRenderingContext2D) => void)> = new Set();
 
    getSuffixText(): string|undefined {return super.getSuffixText()};
@@ -593,16 +593,16 @@ class Button extends ButtonBase implements WidgetEvents {
    }
 }
 
-interface ContainedWidget {
+export interface ContainedWidget {
    widget: Widget,
    x: number,
    y: number
 }
-interface Vec2 {
+export interface Vec2 {
    x: number,
    y: number
 }
-abstract class WidgetContainer extends WidgetImpl implements WidgetManager {
+export abstract class WidgetContainer extends WidgetImpl implements WidgetManager {
 
    readonly handledEvents: MenuItemEvents[] = [
       MenuItemEvents.CLICKED,
@@ -908,11 +908,11 @@ abstract class WidgetContainer extends WidgetImpl implements WidgetManager {
 
 }
 
-interface MenuWidgetConstructor extends WidgetConstructor {
+export interface MenuWidgetConstructor extends WidgetConstructor {
    drawOutline?: boolean,
 }
 
-class Menu extends WidgetContainer {
+export class Menu extends WidgetContainer {
    constructor(ctx: CanvasRenderingContext2D, parent: WidgetManager, props: MenuWidgetConstructor, globalProps: GlobalWidgetProperties) {
       super(ctx, parent, props, globalProps);
    }
@@ -990,7 +990,7 @@ class Menu extends WidgetContainer {
    }
 }
 
-class MenuBar extends WidgetContainer {
+export class MenuBar extends WidgetContainer {
    constructor(ctx: CanvasRenderingContext2D, parent: WidgetManager, props: MenuWidgetConstructor, globalProps: GlobalWidgetProperties) {
       super(ctx, parent, props, globalProps);
    }
@@ -1060,7 +1060,7 @@ class MenuBar extends WidgetContainer {
    }
 }
 
-class RootWidgetManager implements WidgetManager {
+export class RootWidgetManager implements WidgetManager {
    private boundWidgets: [Widget, number, number][] = [];
    private popupWidgets: Map<Widget, [number, number]> = new Map();
 
@@ -1232,13 +1232,13 @@ class RootWidgetManager implements WidgetManager {
    }
 }
 
-interface MenuButtonWidgetConstructor extends ButtonWidgetConstructor {
+export interface MenuButtonWidgetConstructor extends ButtonWidgetConstructor {
    menuWidth?: number;
    menuHeight?: number;
    openToRight?: boolean,
    offset?: number,
 }
-class MenuButton extends ButtonBase implements WidgetManager {
+export class MenuButton extends ButtonBase implements WidgetManager {
    readonly handledEvents: MenuItemEvents[] = [
       MenuItemEvents.CLICKED,
       MenuItemEvents.HOVERING,
@@ -1340,10 +1340,10 @@ class MenuButton extends ButtonBase implements WidgetManager {
    }
 }
 
-interface SeperatorWidgetConstructor extends WidgetConstructor {
+export interface SeperatorWidgetConstructor extends WidgetConstructor {
    seperatorText: string,
 }
-class Seperator extends WidgetImpl {
+export class Seperator extends WidgetImpl {
    readonly handledEvents: MenuItemEvents[] = [];
 
    private seperatorText: string;
@@ -1447,10 +1447,10 @@ class Seperator extends WidgetImpl {
 }
 
 
-interface CheckBoxWidgetConstructor extends WidgetConstructor {
+export interface CheckBoxWidgetConstructor extends WidgetConstructor {
    text: string;
 }
-class CheckBox extends ButtonBase implements WidgetEvents {
+export class CheckBox extends ButtonBase implements WidgetEvents {
    private callbacks: Set<(ctx: CanvasRenderingContext2D, selected: boolean) => void> = new Set();
 
    private _selected = false;
@@ -1488,7 +1488,7 @@ class CheckBox extends ButtonBase implements WidgetEvents {
    }
 }
 
-class RadioItemGroup {
+export class RadioItemGroup {
    private items: Map<RadioItem, {
       deselect: (ctx: CanvasRenderingContext2D)=>void, 
       setRadioGroup: (group: RadioItemGroup)=>void
@@ -1521,7 +1521,7 @@ class RadioItemGroup {
       }
    }
 }
-class RadioItem extends ButtonBase implements WidgetEvents {
+export class RadioItem extends ButtonBase implements WidgetEvents {
    private callbacks: Set<(ctx: CanvasRenderingContext2D, selected: boolean) => void> = new Set();
 
    private _selected = true;
@@ -1577,7 +1577,7 @@ class RadioItem extends ButtonBase implements WidgetEvents {
 }
 
 
-interface WidgetEvents {
+export interface WidgetEvents {
    addEvent: (callback: () => void) => void;
    removeEvent: (callback: () => void) => void;
 }
@@ -1595,7 +1595,7 @@ enum WidgetType {
    SubMenu,
    CheckBox,
 }
-enum WindowEventTypes {
+export enum WindowEventTypes {
    WindowResize,
 }
 
@@ -1680,10 +1680,10 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       ];
    }
 
-   dragFunction: (x: number, y: number) => void;
-   resizeFunction: (x: number, y: number, sides: ResizedSides) => void;
+   dragFunction: (x: number, y: number, event: CanvasEventTypes) => void;
+   resizeFunction: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void;
 
-   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides) => void) {
+   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number, event: CanvasEventTypes) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
@@ -1811,11 +1811,11 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
          | (rightSection ? ResizedSides.Right : 0);
 
       if (resizeSide != 0) {
-         this.resizeFunction(x, y, resizeSide);
+         this.resizeFunction(x, y, resizeSide, event);
       } else if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
 
       } else if (y <= TOP_BAR_SIZE) {
-         this.dragFunction(x, y);
+         this.dragFunction(x, y, event);
       } else if (
          n_x >= 0 && n_y >= 0
          && n_x <= this.drawCanvasWidth
@@ -1865,14 +1865,14 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       this.manager.handleCanvasAnimationFrameEvent(this.ctx, event, delta);
    }
 
+   jsGetDrawcanvas() {
+      return this.drawCanvas;
+   }
    twrGetDrawCanvasJSID(mod:IWasmModule|IWasmModuleAsync) {
       return this.drawCanvas.id;
    }
 
-   twrWindowAddMenu(mod: IWasmModuleAsync | IWasmModule, textPtr: number) {
-      const text = mod.getString(textPtr);
-
-
+   jsAddMenu(text: string): MenuButton {
       const menuOptions: MenuWidgetConstructor = {
       };
 
@@ -1891,6 +1891,12 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
       this.widgets.set(button.id, [WidgetType.SubMenu, button]);
 
+      return button;
+   }
+   twrWindowAddMenu(mod: IWasmModuleAsync | IWasmModule, textPtr: number) {
+      const text = mod.getString(textPtr);
+
+      const button = this.jsAddMenu(text);
 
       return button.id;
    }
@@ -2171,7 +2177,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       
       const typ = mod.getLong(typPtr) as PropBaseType;
       
-      console.log(`Attempting to modify ${propName} in widget ${widgetID}`);
+      // console.log(`Attempting to modify ${propName} in widget ${widgetID}`);
       switch (typ) {
          case PropBaseType.String: 
          {
