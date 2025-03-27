@@ -9,6 +9,7 @@ export enum CanvasEventTypes {
    MOUSE_CLICK,
    MOUSE_DBLCLICK,
    MOUSE_MOVE,
+   MOUSE_LEAVE,
 
    WHEEL,
 
@@ -25,6 +26,7 @@ export const CANVAS_EVENTS = [
    "click",
    "dblclick",
    "mousemove",
+   "mouseleave",
 
    "wheel",
 
@@ -43,6 +45,13 @@ export interface ICanvasEvents {
    handleCanvasAnimationFrameEvent: (event: CanvasEventTypes, delta: number) => void;
 }
 
+let mouseDown = false;
+window.document.addEventListener("mousedown", () => {
+   mouseDown = true;
+});
+window.document.addEventListener("mouseup", () => {
+   mouseDown = false;
+});
 function registerSimilarEvents(canvas: HTMLCanvasElement, start: CanvasEventTypes, end: CanvasEventTypes, handler: (eventType: CanvasEventTypes) => (event: any) => void) {
    for (let i = start; i <= end; i++) {
       canvas.addEventListener(CANVAS_EVENTS[i], handler(i));
@@ -62,7 +71,7 @@ export function bindCanvasEvents(handler: ICanvasEvents, canvas: HTMLCanvasEleme
    const bounding = canvas.getBoundingClientRect();
    const top = bounding.top + window.scrollY;
    const left = bounding.left + window.scrollX;
-   registerSimilarEvents(canvas, CanvasEventTypes.MOUSE_DOWN, CanvasEventTypes.MOUSE_MOVE,
+   registerSimilarEvents(canvas, CanvasEventTypes.MOUSE_DOWN, CanvasEventTypes.MOUSE_LEAVE,
       (type) => (e: MouseEvent) => {
          handler.handleCanvasMouseEvent(
             type,

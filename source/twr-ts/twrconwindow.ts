@@ -1182,6 +1182,14 @@ export class RootWidgetManager implements WidgetManager {
    }
    handleCanvasMouseEvent(ctx: CanvasRenderingContext2D, event: CanvasEventTypes, x: number, y: number, button: number): boolean {
       this.lastMouseMove = [x, y];
+      if (event == CanvasEventTypes.MOUSE_LEAVE) {
+         console.log("mouse leave!!!");
+         if (this.selectedWidget) {
+            this.dispatchEvent(ctx, this.selectedWidget[0], {type: MenuItemEvents.UNHOVERED});
+         }
+         this.selectedWidget = undefined;
+         return false;
+      }
       this.updateSelected(ctx, x, y);
       if (!this.selectedWidget) {
          if (event == CanvasEventTypes.MOUSE_CLICK) {
@@ -1672,6 +1680,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
    // every library should have this line
    libSourcePath = new URL(import.meta.url).pathname;
+   interfaceName = "twrConsoleWindow";
 
    calculatedrawCanvasDims(): [number, number] {
       return [
@@ -1810,7 +1819,10 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
          | (leftSection ? ResizedSides.Left : 0)
          | (rightSection ? ResizedSides.Right : 0);
 
-      if (resizeSide != 0) {
+      if (event == CanvasEventTypes.MOUSE_LEAVE) {
+         this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)
+         this.drawCanvas.handleCanvasMouseEvent(event, n_x, n_y, button);
+      } else if (resizeSide != 0) {
          this.resizeFunction(x, y, resizeSide, event);
       } else if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
 

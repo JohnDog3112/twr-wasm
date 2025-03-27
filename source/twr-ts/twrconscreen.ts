@@ -329,10 +329,12 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
       }
       return true;
    }
+
+   private lastHoveredWindow?: WeakRef<WindowInfo>;
    handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number) {
       this.mouseX = x;
       this.mouseY = y;
-      console.log(CanvasEventTypes[event], x, y, this.clickedWindow, this.resizeStart, this.dragStart);
+      // console.log(CanvasEventTypes[event], x, y, this.clickedWindow, this.resizeStart, this.dragStart);
 
       if (event == CanvasEventTypes.MOUSE_MOVE && this.resizeStart) {
          assertDefined(this.clickedWindow);
@@ -342,7 +344,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          let nYSize: number|undefined = undefined;
 
          const side = this.resizeStart.resizeSide;
-         console.log(ResizedSides[side], ResizedSides.Left&side, ResizedSides.Right&side, ResizedSides.Top&side, ResizedSides.Bottom&side);
+         // console.log(ResizedSides[side], ResizedSides.Left&side, ResizedSides.Right&side, ResizedSides.Top&side, ResizedSides.Bottom&side);
 
          if ((this.resizeStart.resizeSide & ResizedSides.Left) > 0) {
             nXSize = this.resizeStart.startX - x + this.resizeStart.windowStartXSize;
@@ -356,7 +358,6 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
                   nX = this.resizeStart.windowStartX + this.resizeStart.windowStartXSize - this.clickedWindow.minXSize;
                } 
             }
-            console.log("ran left bound");
          } else if ((this.resizeStart.resizeSide & ResizedSides.Right) > 0) {
             nXSize = x - this.resizeStart.startX + this.resizeStart.windowStartXSize;
             if (nXSize <= this.clickedWindow.minXSize) {
@@ -365,7 +366,6 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
                else
                   nXSize = this.clickedWindow.minXSize;
             }
-            console.log("ran right bound")
          }
 
          if ((this.resizeStart.resizeSide & ResizedSides.Top) > 0) {
@@ -380,7 +380,6 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
                   nY = this.resizeStart.windowStartY + this.resizeStart.windowStartYSize - this.clickedWindow.minYSize;
                }
             }
-            console.log("ran top bound")
          } else if ((this.resizeStart.resizeSide & ResizedSides.Bottom) > 0) {
             nYSize = y - this.resizeStart.startY + this.resizeStart.windowStartYSize;
             if (nYSize <= this.clickedWindow.minYSize) {
@@ -389,7 +388,6 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
                else
                   nYSize = this.clickedWindow.minYSize;
             }
-            console.log("ran bottom bound");
          }
 
          if (nX != undefined)
@@ -397,7 +395,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          if (nY != undefined)
             this.clickedWindow.y = nY;
 
-         console.log(nY, this.clickedWindow.y, nYSize);
+         // console.log(nY, this.clickedWindow.y, nYSize);
          
          if (nXSize != undefined || nYSize != undefined) {
             this.clickedWindow.window.resizeWindow(
@@ -415,7 +413,6 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          );
          return true;
       } else if (event == CanvasEventTypes.MOUSE_MOVE && this.clickedWindow) {
-         /// @TODO!!! This is not quite correct, it doesn't allow mouse movement to non-selected windows
          this.clickedWindow.window.handleCanvasMouseEvent(
             event,
             x - this.clickedWindow.x,
@@ -435,16 +432,30 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          this.dragStart = undefined;
          this.canvas.style.cursor = 'auto';
          return true;
+      } else if (event == CanvasEventTypes.MOUSE_LEAVE) {
+         const lastWindow = this.lastHoveredWindow?.deref();
+         if (lastWindow != undefined) {
+            lastWindow.window.handleCanvasMouseEvent(
+               CanvasEventTypes.MOUSE_LEAVE,
+               x - lastWindow.x,
+               y - lastWindow.y,
+               button
+            );
+         }
+         this.lastHoveredWindow = undefined;
+
+         return true;
       }
 
       this.canvas.style.cursor = 'auto';
 
+      let handledWindow: WindowInfo|undefined = undefined;
       for (let node = this.windowOrder.getRoot(); node != undefined; node = node.getNext()) {
          const n_x = x - node.val.x;
          const n_y = y - node.val.y;
          const width = node.val.window.element.width;
          const height = node.val.window.element.height;
-         if (0 <= n_x && n_y <= width && 0 <= n_y && n_y <= height) {
+         if (0 <= n_x && n_x <= width && 0 <= n_y && n_y <= height) {
             switch (event) {
                case CanvasEventTypes.MOUSE_DOWN:
                   this.clickedWindow = node.val;
@@ -456,9 +467,29 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
 
                default:
             }
+            handledWindow = node.val;
             node.val.window.handleCanvasMouseEvent(event, n_x, n_y, button);
+            
             break;
          }
+      }
+
+      const lastWindow = this.lastHoveredWindow?.deref();
+      if (lastWindow != handledWindow) {
+         console.log("here?");
+         if (lastWindow != undefined) {
+            console.log("here");
+            lastWindow.window.handleCanvasMouseEvent(
+               CanvasEventTypes.MOUSE_LEAVE,
+               x - lastWindow.x,
+               y - lastWindow.y,
+               button
+            );   
+         }
+         if (handledWindow != undefined)
+            this.lastHoveredWindow = new WeakRef(handledWindow);
+         else
+            this.lastHoveredWindow = undefined;
       }
       return true;
    }
@@ -478,7 +509,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
       return true;
    }
    handleCanvasAnimationFrameEvent(event: CanvasEventTypes, delta: number) {
-      this.ctx.fillStyle = "0xFFFFFFFF";
+      this.ctx.fillStyle = "#87CEEB";
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       for (let node = this.windowOrder.getTail(); node != undefined; node = node.getPrev()) {
          node.val.window.handleCanvasAnimationFrameEvent(event, delta);
