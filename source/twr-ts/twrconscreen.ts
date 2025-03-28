@@ -331,7 +331,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    }
 
    private lastHoveredWindow?: WeakRef<WindowInfo>;
-   handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number) {
+   handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number): boolean {
       this.mouseX = x;
       this.mouseY = y;
       // console.log(CanvasEventTypes[event], x, y, this.clickedWindow, this.resizeStart, this.dragStart);
@@ -445,6 +445,16 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          this.lastHoveredWindow = undefined;
 
          return true;
+      } else if (event == CanvasEventTypes.MOUSE_CLICKED_OFF) {
+         const rootNode = this.windowOrder.getRoot();
+         if (rootNode == undefined) return true;
+         rootNode.val.window.handleCanvasMouseEvent(
+            CanvasEventTypes.MOUSE_CLICKED_OFF,
+            -1,
+            -1,
+            -1,
+         );
+         return true;
       }
 
       this.canvas.style.cursor = 'auto';
@@ -462,6 +472,14 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
                   //continue down to make this root
                case CanvasEventTypes.MOUSE_CLICK:
                case CanvasEventTypes.MOUSE_DBLCLICK:
+                  if (node != this.windowOrder.getRoot()) {
+                     this.windowOrder.getRoot()!.val.window.handleCanvasMouseEvent(
+                        CanvasEventTypes.MOUSE_CLICKED_OFF,
+                        -1,
+                        -1,
+                        -1
+                     );
+                  }
                   node.makeRootHead();
                break;
 
@@ -476,9 +494,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
 
       const lastWindow = this.lastHoveredWindow?.deref();
       if (lastWindow != handledWindow) {
-         console.log("here?");
          if (lastWindow != undefined) {
-            console.log("here");
             lastWindow.window.handleCanvasMouseEvent(
                CanvasEventTypes.MOUSE_LEAVE,
                x - lastWindow.x,

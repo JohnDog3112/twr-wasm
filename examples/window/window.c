@@ -159,6 +159,9 @@ void init() {
    d2d_register_event(D2D_MOUSE_DBLCLICK, MOUSE_DBL_CLICK_EVENT);
    mouse_event_ids[MOUSE_EVENT_DOUBLE_CLICK] = MOUSE_DBL_CLICK_EVENT;
 
+   int MOUSE_CLICKED_OFF_EVENT = twr_register_callback("mouseClickedOffHandler");
+   d2d_register_event(D2D_MOUSE_CLICKED_OFF, MOUSE_CLICKED_OFF_EVENT);
+
    int KEY_PRESS_EVENT = twr_register_callback("keyEventHandler");
    d2d_register_event(D2D_KEY_DOWN, KEY_PRESS_EVENT);
 
@@ -830,6 +833,11 @@ void mouse_move_handler(int id, int x, int y, int button) {
    square_y = y - SQUARE_HEIGHT/2.0;
    force_square_into_bounds();
 }
+__attribute__((export_name("mouseClickedOffHandler")))
+void mouse_clicked_off_handler(int id, int x, int y, int button) {
+   prop_menu_data.state = PROP_MENU_UNOPENED;
+}
+
 __attribute__((export_name("keyEventHandler")))
 void key_event_handler(int id, int key) {
    printf("pressed key: %d\n", key);

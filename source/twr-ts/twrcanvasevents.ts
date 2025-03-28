@@ -10,6 +10,7 @@ export enum CanvasEventTypes {
    MOUSE_DBLCLICK,
    MOUSE_MOVE,
    MOUSE_LEAVE,
+   MOUSE_CLICKED_OFF,
 
    WHEEL,
 
@@ -27,6 +28,7 @@ export const CANVAS_EVENTS = [
    "dblclick",
    "mousemove",
    "mouseleave",
+   "MOUSE_CLICKED_OFF",
 
    "wheel",
 
@@ -71,16 +73,99 @@ export function bindCanvasEvents(handler: ICanvasEvents, canvas: HTMLCanvasEleme
    const bounding = canvas.getBoundingClientRect();
    const top = bounding.top + window.scrollY;
    const left = bounding.left + window.scrollX;
-   registerSimilarEvents(canvas, CanvasEventTypes.MOUSE_DOWN, CanvasEventTypes.MOUSE_LEAVE,
+
+   //if someone clicks and drags, keep track of when the mouse button goes up outside of the tracked canvas
+   // uses a global document mouseup event tracker + some local trackers to do so
+   let trackMouseDown: Set<number> = new Set();
+   let numTrackers = 0;
+   let globalMouseUpTracker: ((e: MouseEvent) => void)|undefined = undefined;
+
+   let hasBeenClickedOff = false;
+   let mouseIsInCanvas = false;
+   registerSimilarEvents(canvas, CanvasEventTypes.MOUSE_DOWN, CanvasEventTypes.MOUSE_MOVE,
       (type) => (e: MouseEvent) => {
+         hasBeenClickedOff = false;
+         mouseIsInCanvas = true;
+         //if we have an event (that's not mouseleave) inside of the canvas again,
+         // remove the global tracker
+         if (globalMouseUpTracker != undefined) {
+            window.document.removeEventListener("mouseup", globalMouseUpTracker);
+            globalMouseUpTracker = undefined;
+         }
+         const x = e.pageX - left;
+         const y = e.pageY - top;
+         if (type == CanvasEventTypes.MOUSE_DOWN) {
+            if (!trackMouseDown.has(e.button))
+               numTrackers++;
+            trackMouseDown.add(e.button);
+         } else if (type == CanvasEventTypes.MOUSE_UP) {
+            if (trackMouseDown.delete(e.button))
+               numTrackers--;
+         }
          handler.handleCanvasMouseEvent(
             type,
-            e.pageX - left,
-            e.pageY - top,
+            x,
+            y,
             e.button
          );
       }
    );
+
+   document.body.addEventListener("click", () => {
+      if (!hasBeenClickedOff && !mouseIsInCanvas) {
+         hasBeenClickedOff = true;
+         handler.handleCanvasMouseEvent(
+            CanvasEventTypes.MOUSE_CLICKED_OFF,
+            -1,
+            -1,
+            -1
+         );
+      }
+   })
+
+   //handler for mouseleave and tracking mouseup events outside of canvas
+   canvas.addEventListener("mouseleave", (e: MouseEvent) => {
+      mouseIsInCanvas = false;
+      const x = e.pageX - left;
+      const y = e.pageY - top;
+      handler.handleCanvasMouseEvent(
+         CanvasEventTypes.MOUSE_LEAVE,
+         x,
+         y,
+         e.button
+      );
+
+      //if we never did any mouse down button presses before leaving, skip the rest
+      if (numTrackers <= 0) return;
+      //global tracking function
+      globalMouseUpTracker = (e2: MouseEvent) => {
+         //if we've stopped it, ignore it (should have been deregistered already)
+         // this is here just in case
+         if (globalMouseUpTracker == undefined) return;
+         //if the button being released is one that we were tracking, run the rest
+         if (trackMouseDown.has(e2.button)) {
+            //delete it
+            trackMouseDown.delete(e2.button);
+            //remove it from the amount of buttons being tracked
+            numTrackers--;
+            //send mouse up event at the position the mouse left the canvas at
+            handler.handleCanvasMouseEvent(
+               CanvasEventTypes.MOUSE_UP,
+               x,
+               y,
+               e2.button
+            );
+            //if that was the last tracker, remove this event
+            if (numTrackers <= 0) {
+               window.document.removeEventListener("mouseup", globalMouseUpTracker);
+               globalMouseUpTracker = undefined;
+            }
+         }
+
+      };
+      //register the event
+      window.document.addEventListener("mouseup", globalMouseUpTracker);
+   });
 
    canvas.addEventListener("wheel", (e: WheelEvent) => {
       handler.handleCanvasWheelEvent(CanvasEventTypes.WHEEL, e.deltaX, e.deltaY, e.deltaZ, e.deltaMode);
