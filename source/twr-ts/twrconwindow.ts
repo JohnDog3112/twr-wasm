@@ -192,6 +192,8 @@ export interface Widget extends ManagerAndWidgetCombined {
    getMinWidth: () => number;
    getMinHeight: () => number;
 
+   getHoveredCursor: () => string;
+
    setIsDisabled: (val: boolean) => void;
    getIsDisabled: () => boolean;
 
@@ -215,7 +217,8 @@ export abstract class WidgetImpl implements Widget {
          "minWidth": [[this.getMinWidth.bind(this), undefined], PropBaseType.Number],
          "usedWidth": [[this.getUsedWidth.bind(this), undefined], PropBaseType.Number],
          "minHeight": [[this.getMinHeight.bind(this), undefined], PropBaseType.Number],
-         "usedHeight": [[this.getUsedHeight.bind(this), undefined], PropBaseType.Number]
+         "usedHeight": [[this.getUsedHeight.bind(this), undefined], PropBaseType.Number],
+         "hoveredCursor": [[this.getHoveredCursor.bind(this), undefined], PropBaseType.String],
       }
    }
 
@@ -276,6 +279,8 @@ export abstract class WidgetImpl implements Widget {
    getUsedHeight(): number {
       return this._height ?? this.getMinHeight();
    }
+
+   abstract getHoveredCursor(): string;
 }
 
 //constructor fields in interfaces are ... weird
@@ -332,6 +337,13 @@ export abstract class ButtonBase extends WidgetImpl {
    protected setSuffixText(val: string|undefined) {this._suffixText = val; this.propagateUpdate(undefined, true)};
    protected getSuffixText(): string|undefined {return this._suffixText};
 
+   getHoveredCursor(): string {
+      if (this._isDisabled) {
+         return "not-allowed";
+      } else {
+         return "pointer";
+      }
+   }
 
    getPublicProperties(): PublicPropertiesType {
       return {
@@ -879,6 +891,14 @@ export abstract class WidgetContainer extends WidgetImpl implements WidgetManage
       }
 	}
 
+   getHoveredCursor(): string {
+      if (this.selectedItem) {
+         return this.selectedItem.widget.getHoveredCursor();
+      } else {
+         return "auto"
+      }
+   }
+
    bindUnhoverEvent(callback: () => void) {
       this.unhoverHandlers.push(callback);
    }
@@ -1066,8 +1086,18 @@ export class RootWidgetManager implements WidgetManager {
 
    private selectedWidget?: [Widget, number, number];
    private ctx: CanvasRenderingContext2D;
-   constructor(ctx: CanvasRenderingContext2D) {
+   private externalSetMouseCursorFunc: (cursor: string) => void;
+   private lastCursor = "";
+   constructor(ctx: CanvasRenderingContext2D, setMouseCursor: (cursor: string) => void) {
       this.ctx = ctx;
+      this.externalSetMouseCursorFunc = setMouseCursor;
+   }
+
+   private setMouseCursor(cursor: string) {
+      if (cursor != this.lastCursor) {
+         this.lastCursor = cursor;
+         this.externalSetMouseCursorFunc(cursor);
+      }
    }
    getCtx() {
       return this.ctx;
@@ -1182,11 +1212,13 @@ export class RootWidgetManager implements WidgetManager {
    }
    handleCanvasMouseEvent(ctx: CanvasRenderingContext2D, event: CanvasEventTypes, x: number, y: number, button: number): boolean {
       this.lastMouseMove = [x, y];
+
       if (event == CanvasEventTypes.MOUSE_LEAVE) {
          if (this.selectedWidget) {
             this.dispatchEvent(ctx, this.selectedWidget[0], {type: MenuItemEvents.UNHOVERED});
          }
          this.selectedWidget = undefined;
+         this.setMouseCursor("auto");
          return false;
       } else if (event == CanvasEventTypes.MOUSE_CLICKED_OFF) {
          for (const [popup, ] of this.popupWidgets) {
@@ -1195,8 +1227,10 @@ export class RootWidgetManager implements WidgetManager {
          for (const [widget,,] of this.boundWidgets) {
             this.dispatchEvent(ctx, widget, {type: MenuItemEvents.CLICKED_OFF});
          }
+         this.setMouseCursor("auto");
          return false;
       }
+
       this.updateSelected(ctx, x, y);
       if (!this.selectedWidget) {
          if (event == CanvasEventTypes.MOUSE_CLICK) {
@@ -1204,8 +1238,11 @@ export class RootWidgetManager implements WidgetManager {
                this.dispatchEvent(ctx, popup, {type: MenuItemEvents.CLICKED_OFF});
             }
          }
+         this.setMouseCursor("auto");
          return false;
       }
+
+      this.setMouseCursor(this.selectedWidget[0].getHoveredCursor());
 
       switch (event) {
          case CanvasEventTypes.MOUSE_MOVE:
@@ -1374,6 +1411,10 @@ export class Seperator extends WidgetImpl {
 
    setText(val: string) {this._text = val; this.fullUpdate(this.parent.getCtx())};
    getText(): string {return this._text};
+
+   getHoveredCursor(): string {
+      return "auto";
+   }
 
    getPublicProperties(): PublicPropertiesType {
       return {
@@ -1613,7 +1654,11 @@ enum WidgetType {
 export enum WindowEventTypes {
    WindowResize,
 }
-
+enum WindowSections {
+   Widgets,
+   Border,
+   DrawCanvas,
+}
 export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, IConsoleWindow {
    id: number;
    props: IConsoleBaseProps;
@@ -1696,17 +1741,29 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       ];
    }
 
-   dragFunction: (x: number, y: number, event: CanvasEventTypes) => void;
-   resizeFunction: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void;
+   private dragFunction: (x: number, y: number, event: CanvasEventTypes) => void;
+   private resizeFunction: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void;
 
-   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number, event: CanvasEventTypes) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void) {
+   private setMouseCursor: (cursor: string) => void;
+
+   private cursorSection: WindowSections = WindowSections.Border; 
+   private drawCanvasCursor: string = "auto";
+   private widgetManagerCursor: string = "auto";
+   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number, event: CanvasEventTypes) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void, setMouseCursor?: (cursor: string) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
 
       this.element = canvas;
       this.ctx = canvas.getContext("2d")!;
-      this.manager = new RootWidgetManager(this.ctx);
+
+      if (selfRegisterEvents)
+         bindCanvasEvents(this, this.element);
+      this.dragFunction = dragfunction ?? (() => {});
+      this.resizeFunction = resizeFunction ?? (() => {});
+      this.setMouseCursor = setMouseCursor ?? ((cursor: string) => {
+         this.element.style.cursor = cursor;
+      });
 
       // this.drawCanvasHeight = Math.floor(canvas.height - BORDER_SIZE - TOP_BAR_SIZE);
       // this.drawCanvasWidth = Math.floor(canvas.width - BORDER_SIZE*2.0);
@@ -1716,12 +1773,25 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       drawCanvas.height = this.drawCanvasHeight;
       drawCanvas.width = this.drawCanvasWidth;
 
-      this.drawCanvas = new twrConsoleCanvas(drawCanvas, undefined, false);
+      const drawCanvasSetMouseCursor = ((cursor: string) => {
+         if (cursor != this.drawCanvasCursor) {
+            this.drawCanvasCursor = cursor;
+            if (this.cursorSection == WindowSections.DrawCanvas) {
+               this.setMouseCursor(cursor);
+            }
+         }
+      }).bind(this);
+      this.drawCanvas = new twrConsoleCanvas(drawCanvas, undefined, false, drawCanvasSetMouseCursor);
 
-      if (selfRegisterEvents)
-         bindCanvasEvents(this, this.element);
-      this.dragFunction = dragfunction ?? (() => {});
-      this.resizeFunction = resizeFunction ?? (() => {});
+      const widgetManagerSetMouseCursor = ((cursor: string) => {
+         if (cursor != this.widgetManagerCursor) {
+            this.widgetManagerCursor = cursor;
+            if (this.cursorSection == WindowSections.Widgets) {
+               this.setMouseCursor(cursor);
+            }
+         }
+      }).bind(this);
+      this.manager = new RootWidgetManager(this.ctx, widgetManagerSetMouseCursor);
 
       this.props = {
          //TODO: Figure out what type to add/use here
@@ -1811,6 +1881,25 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
    mouseWasOnTopBar: boolean = false;
    mouseWasOnMenu: boolean = false;
+   //function to only change the mouse cursor when the window section is changed
+   // the individual setMouseCursorFunctions handed to the widget manager and the draw canvas
+   //    will automatically change the cursor themselves while they are selected
+   private internalSetCursorSection(section: WindowSections) {
+      if (this.cursorSection != section) {
+         this.cursorSection = section;
+         switch (section) {
+            case WindowSections.Border:
+               this.setMouseCursor("auto");
+            break;
+            case WindowSections.DrawCanvas:
+               this.setMouseCursor(this.drawCanvasCursor);
+            break;
+            case WindowSections.Widgets:
+               this.setMouseCursor(this.widgetManagerCursor);
+            break;
+         }
+      }
+   }
    handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number) {
       const n_x = x - BORDER_SIZE;
       const n_y = y - TOP_BAR_SIZE;
@@ -1829,21 +1918,28 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       if (event == CanvasEventTypes.MOUSE_CLICKED_OFF) {
          this.manager.handleCanvasMouseEvent(this.ctx, event, -1, -1, -1);
          this.drawCanvas.handleCanvasMouseEvent(event, -1, -1, -1);
+         this.internalSetCursorSection(WindowSections.Border);
       } else if (event == CanvasEventTypes.MOUSE_LEAVE) {
          this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)
          this.drawCanvas.handleCanvasMouseEvent(event, n_x, n_y, button);
+         this.internalSetCursorSection(WindowSections.Border);
       } else if (resizeSide != 0) {
          this.resizeFunction(x, y, resizeSide, event);
+         this.internalSetCursorSection(WindowSections.Border);
       } else if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
-
+         this.internalSetCursorSection(WindowSections.Widgets);
       } else if (y <= TOP_BAR_SIZE) {
          this.dragFunction(x, y, event);
+         this.internalSetCursorSection(WindowSections.Border);
       } else if (
          n_x >= 0 && n_y >= 0
          && n_x <= this.drawCanvasWidth
          && n_y <= this.drawCanvasHeight
       ) {
          this.drawCanvas.handleCanvasMouseEvent(event, n_x, n_y, button);
+         this.internalSetCursorSection(WindowSections.DrawCanvas);
+      } else {
+         this.internalSetCursorSection(WindowSections.Border);
       }
 
       return true;

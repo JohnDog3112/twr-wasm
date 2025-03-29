@@ -173,6 +173,7 @@ interface WindowInfo {
    orderNode?: DoublyLinkedListNode<WindowInfo>,
    minXSize: number,
    minYSize: number,
+   cursor: string,
 };
 interface ResizeInfo {
    resizeSide: ResizedSides
@@ -189,6 +190,17 @@ interface DragInfo {
    windowStartX: number,
    windowStartY: number,
 }
+enum BroadCursorState {
+   Background,
+   Window,
+   Moving,
+   Resizing,
+};
+type CursorState = [BroadCursorState.Background]
+   | [BroadCursorState.Window, number]
+   | [BroadCursorState.Moving]
+   | [BroadCursorState.Resizing, string];
+
 export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    id: number;
 
@@ -203,16 +215,19 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    // every library should have this line
    libSourcePath = new URL(import.meta.url).pathname;
 
-   windows: Map<number, WindowInfo> = new Map();
-   windowOrder: DoublyLinkedListRoot<WindowInfo> = new DoublyLinkedListRoot();
+   private windows: Map<number, WindowInfo> = new Map();
+   private windowOrder: DoublyLinkedListRoot<WindowInfo> = new DoublyLinkedListRoot();
 
-   mouseX: number = 0;
-   mouseY: number = 0;
-   clickedWindow?: WindowInfo = undefined;
-   dragStart?: DragInfo = undefined;
-   resizeStart?: ResizeInfo = undefined;
+   private mouseX: number = 0;
+   private mouseY: number = 0;
+   private clickedWindow?: WindowInfo = undefined;
+   private dragStart?: DragInfo = undefined;
+   private resizeStart?: ResizeInfo = undefined;
 
-   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true) {
+   private cursorState: CursorState = [BroadCursorState.Background];
+
+   private setMouseCursor: (cursor: string) => void;
+   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, setMouseCursor?: (cursor: string) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
@@ -222,6 +237,39 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
 
       if (selfRegisterEvents)
          bindCanvasEvents(this, this.canvas);
+
+      this.setMouseCursor = setMouseCursor ?? ((cursor: string) => {
+         this.canvas.style.cursor = cursor;
+      });
+   }
+
+   private setCursorState(state: CursorState) {
+      if (
+         this.cursorState[0] != state[0]
+         || this.cursorState.length != state.length
+         || (this.cursorState.length >= 2 && this.cursorState[1] != state[1])
+      ) {
+         this.cursorState = state;
+         switch (state[0]) {
+            case BroadCursorState.Background:
+               this.setMouseCursor("auto");
+            break;
+            case BroadCursorState.Moving:
+               this.setMouseCursor("grab");
+            break;
+            case BroadCursorState.Resizing:
+               this.setMouseCursor(state[1]);
+            break;
+            case BroadCursorState.Window:
+               const window = this.windows.get(state[1]);
+               if (window) {
+                  this.setMouseCursor(window.cursor);
+               } else {
+                  this.setCursorState([BroadCursorState.Background]);
+               }
+            break;
+         }
+      }
    }
 
    jsSpawnWindow(): twrConsoleWindow {
@@ -234,7 +282,8 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          const strongThis = weakThis.deref();
          const strongWindowInfo = weakWindowInfo?.deref();
          if (!strongThis || !strongWindowInfo) return;
-         strongThis.canvas.style.cursor = 'grab';
+         // strongThis.canvas.style.cursor = 'grab';
+         strongThis.setCursorState([BroadCursorState.Moving]);
          if (!strongThis.dragStart && strongThis.clickedWindow == strongWindowInfo && event == CanvasEventTypes.MOUSE_DOWN) {
             strongThis.dragStart = {
                startX: x + strongWindowInfo.x,
@@ -251,22 +300,26 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          switch (side) {
             case ResizedSides.BottomLeft:
             case ResizedSides.TopRight:
-               strongThis.canvas.style.cursor = 'nesw-resize';
+               // strongThis.canvas.style.cursor = 'nesw-resize';
+               strongThis.setCursorState([BroadCursorState.Resizing, 'nesw-resize']);
             break;
 
             case ResizedSides.BottomRight:
             case ResizedSides.TopLeft:
-               strongThis.canvas.style.cursor = 'nwse-resize';
+               // strongThis.canvas.style.cursor = 'nwse-resize';
+               strongThis.setCursorState([BroadCursorState.Resizing, 'nwse-resize']);
             break;
 
             case ResizedSides.Top:
             case ResizedSides.Bottom:
-               strongThis.canvas.style.cursor = 'ns-resize';
+               // strongThis.canvas.style.cursor = 'ns-resize';
+               strongThis.setCursorState([BroadCursorState.Resizing, 'ns-resize']);
             break;
 
             case ResizedSides.Left:
             case ResizedSides.Right:
-               strongThis.canvas.style.cursor = 'ew-resize';
+               // strongThis.canvas.style.cursor = 'ew-resize';
+               strongThis.setCursorState([BroadCursorState.Resizing, 'ew-resize']);
             break;
          }
          if (!strongThis.resizeStart && strongThis.clickedWindow == strongWindowInfo && event == CanvasEventTypes.MOUSE_DOWN) {
@@ -281,7 +334,21 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
             };
          }
       };
-      const window = new twrConsoleWindow(canvas, false, dragFunction, resizeFunction);
+      const windowMouseSetCursor = (cursor: string) => {
+         const strongThis = weakThis.deref();
+         const strongWindowInfo = weakWindowInfo?.deref();
+         if (!strongThis || !strongWindowInfo) return;
+         if (cursor != strongWindowInfo.cursor) {
+            strongWindowInfo.cursor = cursor;
+            if (
+               strongThis.cursorState[0] == BroadCursorState.Window
+               && strongThis.cursorState[1] == strongWindowInfo.window.id
+            ) {
+               strongThis.setMouseCursor(cursor);
+            }
+         }
+      };
+      const window = new twrConsoleWindow(canvas, false, dragFunction, resizeFunction, windowMouseSetCursor);
       const windowInfo: WindowInfo = {
          window: window,
          x: 20,
@@ -289,6 +356,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          hidden: false,
          minXSize: 50,
          minYSize: 50,
+         cursor: "auto",
       };
       weakWindowInfo = new WeakRef(windowInfo);
       this.windows.set(window.id, windowInfo);
@@ -430,7 +498,8 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          this.clickedWindow = undefined;
          this.resizeStart = undefined;
          this.dragStart = undefined;
-         this.canvas.style.cursor = 'auto';
+         
+         this.handleCanvasMouseEvent(CanvasEventTypes.MOUSE_MOVE, x, y, button);
          return true;
       } else if (event == CanvasEventTypes.MOUSE_LEAVE) {
          const lastWindow = this.lastHoveredWindow?.deref();
@@ -443,6 +512,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
             );
          }
          this.lastHoveredWindow = undefined;
+         this.setCursorState([BroadCursorState.Background]);
 
          return true;
       } else if (event == CanvasEventTypes.MOUSE_CLICKED_OFF) {
@@ -454,10 +524,11 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
             -1,
             -1,
          );
+
+         this.setCursorState([BroadCursorState.Background]);
          return true;
       }
 
-      this.canvas.style.cursor = 'auto';
 
       let handledWindow: WindowInfo|undefined = undefined;
       for (let node = this.windowOrder.getRoot(); node != undefined; node = node.getNext()) {
@@ -485,6 +556,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
 
                default:
             }
+            this.setCursorState([BroadCursorState.Window, node.val.window.id]);
             handledWindow = node.val;
             node.val.window.handleCanvasMouseEvent(event, n_x, n_y, button);
             
@@ -492,6 +564,9 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          }
       }
 
+      if (handledWindow == undefined) {
+         this.setCursorState([BroadCursorState.Background]);
+      }
       const lastWindow = this.lastHoveredWindow?.deref();
       if (lastWindow != handledWindow) {
          if (lastWindow != undefined) {

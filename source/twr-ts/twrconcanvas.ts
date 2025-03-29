@@ -106,7 +106,8 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
    libSourcePath = new URL(import.meta.url).pathname;
    interfaceName = "twrConsole";
 
-   constructor(element:HTMLCanvasElement, ctxOptions?: CanvasRenderingContext2DSettings, selfRegisterEvents: boolean = true) {
+   private setMouseCursor: ((cursor: string) => void);
+   constructor(element:HTMLCanvasElement, ctxOptions?: CanvasRenderingContext2DSettings, selfRegisterEvents: boolean = true, setMouseCursor?: (cursor: string) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
@@ -131,6 +132,9 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
       if (selfRegisterEvents) {
          bindCanvasEvents(this, element);
       }
+      this.setMouseCursor = setMouseCursor ?? ((cursor: string) => {
+         this.element.style.cursor = cursor
+      });
       
       this.registeredEvents = Object.values(CanvasEventTypes)
          .filter(value => typeof value == "number")
