@@ -14,7 +14,8 @@ export enum CanvasEventTypes {
 
    WHEEL,
 
-   ANIMATION_FRAME
+   ANIMATION_FRAME,
+   CANVAS_RESIZE,
 }
 export const NUM_CANVAS_EVENTS = Object.values(CanvasEventTypes).length;
 
@@ -32,7 +33,8 @@ export const CANVAS_EVENTS = [
 
    "wheel",
 
-   "ANIMATION_FRAME"
+   "ANIMATION_FRAME",
+   "CANVAS_RESIZE",
 ];
 
 export interface ICanvasEvents {

@@ -452,7 +452,8 @@ enum D2DEvent {
 
    D2D_WHEEL,
 
-   D2D_ANIMATION_FRAME
+   D2D_ANIMATION_FRAME,
+   D2D_CANVAS_RESIZE
 };
 
 struct d2d_draw_seq* d2d_start_draw_sequence(int flush_at_ins_count);

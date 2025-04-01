@@ -10,6 +10,7 @@ static int MOUSE_PRESS_EVENT_ID = -1;
 static int ANIMATION_LOOP_EVENT_ID = -1;
 static int KEY_DOWN_EVENT_ID = -1;
 static int KEY_UP_EVENT_ID = -1;
+static int CANVAS_RESIZE_EVENT_ID = -1;
 extern "C" {
    // __attribute__((import_name("registerKeyUpEvent")))
    // void register_key_up_event(int event_id);
@@ -50,6 +51,10 @@ extern "C" {
       // register_key_up_event(KEY_UP_EVENT_ID);
       d2d_register_event(D2D_KEY_UP, KEY_UP_EVENT_ID);
 
+      CANVAS_RESIZE_EVENT_ID = twr_register_callback("menuCanvasResizeCallback");
+      d2d_register_event(D2D_CANVAS_RESIZE, CANVAS_RESIZE_EVENT_ID);
+
+
       menu.setBounds(d2d_get_canvas_prop("canvasWidth"), d2d_get_canvas_prop("canvasHeight"));
    }
 
@@ -76,6 +81,11 @@ extern "C" {
    __attribute__((export_name("menuKeyUpCallback")))
    void menu_key_up_callback(int event_id, long keycode) {
       menu.keyUpEvent(keycode);
+   }
+
+   __attribute__((export_name("menuCanvasResizeCallback")))
+   void menu_canvas_resize_callback(int event_id, int width, int height) {
+      menu.setBounds(width, height);
    }
 
 }

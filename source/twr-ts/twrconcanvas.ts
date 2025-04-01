@@ -152,6 +152,8 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
       this.props.canvasHeight = height;
 
       this.ctx.putImageData(imageData, 0, 0);
+
+      this.internalSendEvent(CanvasEventTypes.CANVAS_RESIZE, width, height);
       // this.ctx = this.element.getContext("2d")!;
    }
 
