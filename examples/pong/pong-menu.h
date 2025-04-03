@@ -24,6 +24,7 @@ class Menu {
    public:
    Menu();
    void setBounds(long width, long height);
+   void init();
 
    void mouseMoveEvent(long x, long y);
    void mousePressEvent(long x, long y);
@@ -31,12 +32,15 @@ class Menu {
    void keyUpEvent(long keycode);
    void render(long delta);
 
+   void setUseURL(bool useURL);
+
    private:
    twrCanvas canvas;
    long width;
    long height;
    LinkedListRoot<MenuButton> buttons;
    MenuState state = MenuState::Menu;
+   bool useURL;
 
    void addButton(long x, long y, long w, long h, const char* name, int id);
    void renderButtons();

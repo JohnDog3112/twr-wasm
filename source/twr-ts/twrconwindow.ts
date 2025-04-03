@@ -1983,7 +1983,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       this.manager.handleCanvasAnimationFrameEvent(this.ctx, event, delta);
    }
 
-   jsGetDrawcanvas() {
+   jsGetDrawCanvas() {
       return this.drawCanvas;
    }
    twrGetDrawCanvasJSID(mod:IWasmModule|IWasmModuleAsync) {

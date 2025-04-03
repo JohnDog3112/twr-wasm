@@ -23,20 +23,27 @@
 
             const modCon = is_async ? twrWasmModuleAsync : twrWasmModule;
 
+
+            import jsEventsLib from "../pong/out/jsEventsLib.js"  // libraries use default export
+            const jsEventsLibInit=new jsEventsLib();  //will register itself
+
             // const windowCanvas = document.getElementById("window");
             // if (windowCanvas == undefined) throw new Error(`Window example: Couldn't find window canvas!`);
             // const windowConsole = new twrConsoleWindow(windowCanvas);
             const screenCanvas = document.getElementById("screen");
             if (screenCanvas == undefined) throw new Error(`Screen example: couldn't find screen canvas!`);
             const screenConsole = new twrConsoleScreen(screenCanvas);
-            async function spawnWindowExample(wasmFiles) {
+            async function spawnWindowExample(wasmFiles, startFunc) {
                const windowConsole = screenConsole.jsSpawnWindow();
+               const d2dCanvas = windowConsole.jsGetDrawCanvas();
                const mod = new modCon({io:{
                   window: windowConsole,
+                  d2dcanvas: d2dCanvas,
                }});
+               console.log("id: ", d2dCanvas.id);
                await mod.loadWasm(is_async ? wasmFiles.async : wasmFiles.sync);
 
-               await mod.callC(["init"]);
+               await mod.callC([startFunc]);
 
                return mod;
             }
@@ -44,13 +51,13 @@
                async: "../window/window-a.wasm",
                sync: "../window/window.wasm"
             };
-            spawnWindowExample(windowWasmFiles);
-            spawnWindowExample(windowWasmFiles);
+            spawnWindowExample(windowWasmFiles, "init");
+            spawnWindowExample(windowWasmFiles, "init");
             const pongWasmFiles = {
                async: "../pong/entry-point-a.wasm",
                sync: "../pong/entry-point.wasm"
             };
-            spawnWindowExample(pongWasmFiles);
+            spawnWindowExample(pongWasmFiles, "initMenu");
          </script>
     </body>
 </html>

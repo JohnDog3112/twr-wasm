@@ -31,6 +31,15 @@ extern "C" {
 
    __attribute__((export_name("initMenu")))
    void init_menu() {
+
+      twr_ioconsole_t* d2dcanvas = twr_get_console("d2dcanvas");
+      bool useURL = true;
+      if (d2dcanvas != NULL) {
+         useURL = false;
+         twr_set_std2d_con(d2dcanvas);
+      }
+
+
       MOUSE_MOVE_EVENT_ID = twr_register_callback("menuMouseMoveCallback");
       // register_mouse_move_event(MOUSE_MOVE_EVENT_ID, "twr_d2dcanvas", true);
       d2d_register_event(D2D_MOUSE_MOVE, MOUSE_MOVE_EVENT_ID);
@@ -55,7 +64,9 @@ extern "C" {
       d2d_register_event(D2D_CANVAS_RESIZE, CANVAS_RESIZE_EVENT_ID);
 
 
+      menu.setUseURL(useURL);
       menu.setBounds(d2d_get_canvas_prop("canvasWidth"), d2d_get_canvas_prop("canvasHeight"));
+      menu.init();
    }
 
    __attribute__((export_name("menuMouseMoveCallback")))
