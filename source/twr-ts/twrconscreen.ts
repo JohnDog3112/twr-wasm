@@ -165,6 +165,12 @@ export enum ResizedSides {
    BottomLeft = ResizedSides.Bottom | ResizedSides.Left,
    TopLeft = ResizedSides.Top | ResizedSides.Left,
 }
+enum WindowParentType {
+   Window,
+   Layer
+}
+type WindowParent = [WindowParentType.Window, WindowInfo]
+   | [WindowParentType.Layer, number];
 interface WindowInfo {
    window: twrConsoleWindow,
    x: number,
@@ -175,7 +181,8 @@ interface WindowInfo {
    minYSize: number,
    cursor: string,
    popupWindows: DoublyLinkedListRoot<WindowInfo>,
-   selectedPopupWindow: boolean,
+   parent: WindowParent,
+   // selectedPopupWindow: boolean,
 };
 interface ResizeInfo {
    resizeSide: ResizedSides
@@ -202,7 +209,19 @@ type CursorState = [BroadCursorState.Background]
    | [BroadCursorState.Window, number]
    | [BroadCursorState.Moving]
    | [BroadCursorState.Resizing, string];
-
+function areCursorStatesEqual(a: CursorState, b: CursorState): boolean {
+   if (a[0] != b[0]) return false;
+   switch(a[0]) {
+      case BroadCursorState.Background:
+         return true;
+      case BroadCursorState.Window:
+         return a[1] == b[1];
+      case BroadCursorState.Moving:
+         return true;
+      case BroadCursorState.Resizing:
+         return a[1] == b[1];
+   }
+}
 export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    id: number;
 
@@ -219,7 +238,8 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
 
    private windows: Map<number, WindowInfo> = new Map();
    //the window layer to be selected
-   private selectedWindowLayer = 1;
+   // private selectedWindowLayer = 1;
+   private selectedWindow?: WeakRef<WindowInfo>;
    //the window order seperated by 3 layers.
    private windowOrder: DoublyLinkedListRoot<WindowInfo>[] = [];
 
@@ -253,11 +273,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    }
 
    private setCursorState(state: CursorState) {
-      if (
-         this.cursorState[0] != state[0]
-         || this.cursorState.length != state.length
-         || (this.cursorState.length >= 2 && this.cursorState[1] != state[1])
-      ) {
+      if (!areCursorStatesEqual(this.cursorState, state)) {
          this.cursorState = state;
          switch (state[0]) {
             case BroadCursorState.Background:
@@ -292,79 +308,77 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
       // is incremented by spawnOffsetChange everytime windows loop back to the top
       baseX: this.baseWindowSpaceOffset.x,
    };
+   private static internalChildDragFunction(weakThis: WeakRef<twrConsoleScreen>, weakWindowInfo: WeakRef<WindowInfo>, x: number, y: number, event: CanvasEventTypes) {
+      const strongThis = weakThis.deref();
+      const strongWindowInfo = weakWindowInfo?.deref();
+      if (!strongThis || !strongWindowInfo) return;
+      strongThis.setCursorState([BroadCursorState.Moving]);
+      if (!strongThis.dragStart && strongThis.clickedWindow == strongWindowInfo && event == CanvasEventTypes.MOUSE_DOWN) {
+         strongThis.dragStart = {
+            startX: x + strongWindowInfo.x,
+            startY: y + strongWindowInfo.y,
+            windowStartX: strongWindowInfo.x,
+            windowStartY: strongWindowInfo.y,
+         };
+      }
+   }
+   private static internalChildResizeFunction(weakThis: WeakRef<twrConsoleScreen>, weakWindowInfo: WeakRef<WindowInfo>, x: number, y: number, side: ResizedSides, event: CanvasEventTypes) {
+      const strongThis = weakThis.deref();
+      const strongWindowInfo = weakWindowInfo?.deref();
+      if (!strongThis || !strongWindowInfo) return;
+      switch (side) {
+         case ResizedSides.BottomLeft:
+         case ResizedSides.TopRight:
+            strongThis.setCursorState([BroadCursorState.Resizing, 'nesw-resize']);
+         break;
+
+         case ResizedSides.BottomRight:
+         case ResizedSides.TopLeft:
+            strongThis.setCursorState([BroadCursorState.Resizing, 'nwse-resize']);
+         break;
+
+         case ResizedSides.Top:
+         case ResizedSides.Bottom:
+            strongThis.setCursorState([BroadCursorState.Resizing, 'ns-resize']);
+         break;
+
+         case ResizedSides.Left:
+         case ResizedSides.Right:
+            strongThis.setCursorState([BroadCursorState.Resizing, 'ew-resize']);
+         break;
+      }
+      if (!strongThis.resizeStart && strongThis.clickedWindow == strongWindowInfo && event == CanvasEventTypes.MOUSE_DOWN) {
+         strongThis.resizeStart = {
+            resizeSide: side,
+            startX: x + strongWindowInfo.x,
+            startY: y + strongWindowInfo.y,
+            windowStartX: strongWindowInfo.x,
+            windowStartY: strongWindowInfo.y,
+            windowStartXSize: strongWindowInfo.window.element.width,
+            windowStartYSize: strongWindowInfo.window.element.height,
+         };
+      }
+   }
+   private static internalChildSetCursor(weakThis: WeakRef<twrConsoleScreen>, weakWindowInfo: WeakRef<WindowInfo>, cursor: string) {
+      const strongThis = weakThis.deref();
+      const strongWindowInfo = weakWindowInfo?.deref();
+      if (!strongThis || !strongWindowInfo) return;
+      if (cursor != strongWindowInfo.cursor) {
+         strongWindowInfo.cursor = cursor;
+         if (
+            strongThis.cursorState[0] == BroadCursorState.Window
+            && strongThis.cursorState[1] == strongWindowInfo.window.id
+         ) {
+            strongThis.setMouseCursor(cursor);
+         }
+      }
+   }
    //how much to change windowSpawnOffset every time a window is spawned
    readonly spawnOffsetChange = 25;
    jsSpawnWindow(): twrConsoleWindow {
       const canvas = document.createElement("canvas");
       canvas.height = 500;
       canvas.width = 500;
-      let weakWindowInfo: WeakRef<WindowInfo> | undefined;
-      const weakThis = new WeakRef(this);
-      const dragFunction = (x: number, y: number, event: CanvasEventTypes) => {
-         const strongThis = weakThis.deref();
-         const strongWindowInfo = weakWindowInfo?.deref();
-         if (!strongThis || !strongWindowInfo) return;
-         strongThis.setCursorState([BroadCursorState.Moving]);
-         if (!strongThis.dragStart && strongThis.clickedWindow == strongWindowInfo && event == CanvasEventTypes.MOUSE_DOWN) {
-            strongThis.dragStart = {
-               startX: x + strongWindowInfo.x,
-               startY: y + strongWindowInfo.y,
-               windowStartX: strongWindowInfo.x,
-               windowStartY: strongWindowInfo.y,
-            };
-         }
-      };
-      const resizeFunction = (x: number, y: number, side: ResizedSides, event: CanvasEventTypes) => {
-         const strongThis = weakThis.deref();
-         const strongWindowInfo = weakWindowInfo?.deref();
-         if (!strongThis || !strongWindowInfo) return;
-         switch (side) {
-            case ResizedSides.BottomLeft:
-            case ResizedSides.TopRight:
-               strongThis.setCursorState([BroadCursorState.Resizing, 'nesw-resize']);
-            break;
-
-            case ResizedSides.BottomRight:
-            case ResizedSides.TopLeft:
-               strongThis.setCursorState([BroadCursorState.Resizing, 'nwse-resize']);
-            break;
-
-            case ResizedSides.Top:
-            case ResizedSides.Bottom:
-               strongThis.setCursorState([BroadCursorState.Resizing, 'ns-resize']);
-            break;
-
-            case ResizedSides.Left:
-            case ResizedSides.Right:
-               strongThis.setCursorState([BroadCursorState.Resizing, 'ew-resize']);
-            break;
-         }
-         if (!strongThis.resizeStart && strongThis.clickedWindow == strongWindowInfo && event == CanvasEventTypes.MOUSE_DOWN) {
-            this.resizeStart = {
-               resizeSide: side,
-               startX: x + strongWindowInfo.x,
-               startY: y + strongWindowInfo.y,
-               windowStartX: strongWindowInfo.x,
-               windowStartY: strongWindowInfo.y,
-               windowStartXSize: strongWindowInfo.window.element.width,
-               windowStartYSize: strongWindowInfo.window.element.height,
-            };
-         }
-      };
-      const windowMouseSetCursor = (cursor: string) => {
-         const strongThis = weakThis.deref();
-         const strongWindowInfo = weakWindowInfo?.deref();
-         if (!strongThis || !strongWindowInfo) return;
-         if (cursor != strongWindowInfo.cursor) {
-            strongWindowInfo.cursor = cursor;
-            if (
-               strongThis.cursorState[0] == BroadCursorState.Window
-               && strongThis.cursorState[1] == strongWindowInfo.window.id
-            ) {
-               strongThis.setMouseCursor(cursor);
-            }
-         }
-      };
       if (this.windowSpawnOffset.x >= this.canvas.width-50) {
          this.windowSpawnOffset.x = this.canvas.width > 100 ? this.baseWindowSpaceOffset.x : 5;
          this.windowSpawnOffset.y = this.canvas.height > 100 ? this.baseWindowSpaceOffset.y : 5;
@@ -375,9 +389,11 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          this.windowSpawnOffset.baseX += this.spawnOffsetChange;
          this.windowSpawnOffset.x = this.windowSpawnOffset.baseX;
       }
-      const window = new twrConsoleWindow(canvas, false, dragFunction, resizeFunction, windowMouseSetCursor);
+
       const windowInfo: WindowInfo = {
-         window: window,
+         //small hack to allow WindowInfo to be defined before window
+         // so it can be passed into the handler functions like drag, resize, and cursor
+         window: undefined as any as twrConsoleWindow,
          x: this.windowSpawnOffset.x,
          y: this.windowSpawnOffset.y,
          hidden: false,
@@ -385,14 +401,28 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          minYSize: 200,
          cursor: "auto",
          popupWindows: new DoublyLinkedListRoot(),
-         selectedPopupWindow: false,
+         parent: [WindowParentType.Layer, 1],
+         // selectedPopupWindow: false,
       };
+      let weakWindowInfo = new WeakRef(windowInfo);
+      const weakThis = new WeakRef(this);
+      
+      const window = new twrConsoleWindow(
+         canvas, 
+         false, 
+         twrConsoleScreen.internalChildDragFunction.bind(undefined, weakThis, weakWindowInfo), 
+         twrConsoleScreen.internalChildResizeFunction.bind(undefined, weakThis, weakWindowInfo), 
+         twrConsoleScreen.internalChildSetCursor.bind(undefined, weakThis, weakWindowInfo)
+      );
+      windowInfo.window = window;
+      
       this.windowSpawnOffset.x += this.spawnOffsetChange;
       this.windowSpawnOffset.y += this.spawnOffsetChange;
       weakWindowInfo = new WeakRef(windowInfo);
       this.windows.set(window.id, windowInfo);
       const node = this.windowOrder[1].createNodeAtFront(windowInfo);
-      this.selectedWindowLayer = 1;
+      // this.selectedWindowLayer = 1;
+      this.selectedWindow = new WeakRef(node.val);
       windowInfo.orderNode = node;
 
       return window;
@@ -445,17 +475,39 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    }
 
    handleCanvasKeyEvent(event: CanvasEventTypes, key: number) {
-      const selected = this.windowOrder[this.selectedWindowLayer].getRoot();
-      if (selected) {
-         if (selected.val.selectedPopupWindow)
-            selected.val.popupWindows.getRoot()!
-               .val.window.handleCanvasAnimationFrameEvent(event, key);
-         else
-            selected.val.window.handleCanvasKeyEvent(event, key);
-      }
+      this.selectedWindow?.deref()?.window.handleCanvasKeyEvent(event, key);
       return true;
    }
 
+   private internalSetSelected(window: WindowInfo) {
+      if (this.selectedWindow?.deref() == window) return;
+      this.selectedWindow = new WeakRef(window);
+      window.orderNode!.makeRootHead();
+      for (let parent = window.parent; parent[0] == WindowParentType.Window; parent = parent[1].parent) {
+         parent[1].orderNode!.makeRootHead();
+      }
+   }
+   private internalFindHoveredWindow(x: number, y: number, windows?: DoublyLinkedListRoot<WindowInfo>): WindowInfo|undefined {
+      if (windows == undefined) {
+         for (const layer of this.windowOrder) {
+            const val = this.internalFindHoveredWindow(x, y, layer);
+            if (val != undefined) return val;
+         }
+         return undefined;
+      }
+      for (let window = windows.getRoot(); window != undefined; window = window.getNext()) {
+         const val = this.internalFindHoveredWindow(x, y, window.val.popupWindows);
+         if (val != undefined) return val;
+
+         const n_x = x - window.val.x;
+         const n_y = y - window.val.y;
+         const width = window.val.window.element.width;
+         const height = window.val.window.element.height;
+         if (0 <= n_x && n_x <= width && 0 <= n_y && n_y <= height) {
+            return window.val;
+         }
+      }
+   }
    private lastHoveredWindow?: WeakRef<WindowInfo>;
    handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number): boolean {
       this.mouseX = x;
@@ -574,64 +626,50 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
 
          return true;
       } else if (event == CanvasEventTypes.MOUSE_CLICKED_OFF) {
-         const rootNode = this.windowOrder[this.selectedWindowLayer].getRoot();
-         if (rootNode == undefined) return true;
-         rootNode.val.window.handleCanvasMouseEvent(
+         this.selectedWindow?.deref()?.window.handleCanvasMouseEvent(
             CanvasEventTypes.MOUSE_CLICKED_OFF,
             -1,
             -1,
             -1,
          );
-
+         this.selectedWindow = undefined;
          this.setCursorState([BroadCursorState.Background]);
          return true;
       }
 
-
-      let handledWindow: WindowInfo|undefined = undefined;
-      layerloop: for (let layerID = 0; layerID < this.windowOrder.length; layerID++) {
-         const layer = this.windowOrder[layerID];
-         for (let node = layer.getRoot(); node != undefined; node = node.getNext()) {
-            const n_x = x - node.val.x;
-            const n_y = y - node.val.y;
-            const width = node.val.window.element.width;
-            const height = node.val.window.element.height;
-            if (0 <= n_x && n_x <= width && 0 <= n_y && n_y <= height) {
-               switch (event) {
-                  case CanvasEventTypes.MOUSE_DOWN:
-                     this.clickedWindow = node.val;
-                     //continue down to make this root
-                  case CanvasEventTypes.MOUSE_CLICK:
-                  case CanvasEventTypes.MOUSE_DBLCLICK:
-                     if (node != layer.getRoot()) {
-                        layer.getRoot()!.val.window.handleCanvasMouseEvent(
-                           CanvasEventTypes.MOUSE_CLICKED_OFF,
-                           -1,
-                           -1,
-                           -1
-                        );
-                     }
-                     node.makeRootHead();
-                     this.selectedWindowLayer = layerID;
-                  break;
-   
-                  default:
-               }
-               this.setCursorState([BroadCursorState.Window, node.val.window.id]);
-               handledWindow = node.val;
-               node.val.window.handleCanvasMouseEvent(event, n_x, n_y, button);
-               
-               break layerloop;
-            }
-         }
-      }
+      const hoveredWindow = this.internalFindHoveredWindow(x, y);
       
 
-      if (handledWindow == undefined) {
+      if (hoveredWindow == undefined) {
          this.setCursorState([BroadCursorState.Background]);
+      } else {
+         switch (event) {
+            case CanvasEventTypes.MOUSE_DOWN:
+               this.clickedWindow = hoveredWindow;
+               //continue down to make this root
+            case CanvasEventTypes.MOUSE_CLICK:
+            case CanvasEventTypes.MOUSE_DBLCLICK:
+               const selectedWindow = this.selectedWindow?.deref();
+               if (hoveredWindow != selectedWindow && selectedWindow != undefined) {
+                  selectedWindow.window.handleCanvasMouseEvent(
+                     CanvasEventTypes.MOUSE_CLICKED_OFF,
+                     -1,
+                     -1,
+                     -1
+                  );
+               }
+               this.internalSetSelected(hoveredWindow);
+            break;
+
+            default:
+         }
+         this.setCursorState([BroadCursorState.Window, hoveredWindow.window.id]);
+         const n_x = x - hoveredWindow.x;
+         const n_y = y - hoveredWindow.y;
+         hoveredWindow.window.handleCanvasMouseEvent(event, n_x, n_y, button);
       }
       const lastWindow = this.lastHoveredWindow?.deref();
-      if (lastWindow != handledWindow) {
+      if (lastWindow != hoveredWindow) {
          if (lastWindow != undefined) {
             lastWindow.window.handleCanvasMouseEvent(
                CanvasEventTypes.MOUSE_LEAVE,
@@ -640,8 +678,8 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
                button
             );   
          }
-         if (handledWindow != undefined)
-            this.lastHoveredWindow = new WeakRef(handledWindow);
+         if (hoveredWindow != undefined)
+            this.lastHoveredWindow = new WeakRef(hoveredWindow);
          else
             this.lastHoveredWindow = undefined;
       }
@@ -650,41 +688,28 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    handleCanvasWheelEvent(event: CanvasEventTypes, deltaX: number, deltaY: number, deltaZ: number, deltaMode: number) {
       if (this.clickedWindow)
          return true;
-      layerLoop: for (let layerID = 0; layerID < this.windowOrder.length; layerID++) {
-         const layer = this.windowOrder[layerID];
-         for (let node = layer.getRoot(); node != undefined; node = node.getNext()) {
-            const n_x = this.mouseX - node.val.x;
-            const n_y = this.mouseY - node.val.y;
-            const width = node.val.window.element.width;
-            const height = node.val.window.element.height;
-            if (0 <= n_x && n_y <= width && 0 <= n_y && n_y <= height) {
-               node.val.window.handleCanvasWheelEvent(event, deltaX, deltaY, deltaZ, deltaMode);
-               break layerLoop;
-            }
-         }
-      }
+      const hoveredWindow = this.internalFindHoveredWindow(this.mouseX, this.mouseY);
+      if (hoveredWindow)
+         hoveredWindow.window.handleCanvasWheelEvent(event, deltaX, deltaY, deltaZ, deltaMode);
       
       return true;
+   }
+   private internalRenderWindows(event: CanvasEventTypes, delta: number, windows: DoublyLinkedListRoot<WindowInfo>) {
+      for (let node = windows.getTail(); node != undefined; node = node.getPrev()) {
+         node.val.window.handleCanvasAnimationFrameEvent(event, delta);
+         this.ctx.drawImage(
+            node.val.window.element,
+            node.val.x,
+            node.val.y
+         );
+         this.internalRenderWindows(event, delta, node.val.popupWindows);
+      }
    }
    handleCanvasAnimationFrameEvent(event: CanvasEventTypes, delta: number) {
       this.ctx.fillStyle = "#87CEEB";
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       for (let layerID = this.windowOrder.length-1; layerID >= 0; layerID--) {
-         const layer = this.windowOrder[layerID];
-         const renderLoop = (windows: DoublyLinkedListRoot<WindowInfo>) => {
-            const tail = windows.getTail();
-            if (tail == undefined) return;
-            for (let node = windows.getTail(); node != undefined; node = node.getPrev()) {
-               node.val.window.handleCanvasAnimationFrameEvent(event, delta);
-               this.ctx.drawImage(
-                  node.val.window.element, 
-                  node.val.x, 
-                  node.val.y
-               );
-               renderLoop(node.val.popupWindows);
-            }
-         };
-         renderLoop(layer);
+         this.internalRenderWindows(event, delta, this.windowOrder[layerID]);
       }
       return true;
    }
