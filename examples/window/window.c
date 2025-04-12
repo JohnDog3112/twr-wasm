@@ -181,6 +181,8 @@ void init() {
    setup_extra_menu(&extra_menu);
    setup_prop_menu(&prop_menu);
    setup_menu_prop_menu(&menu_prop_menu);
+
+   twr_window_set_title(window_con, "Window Example");
 }
 
 int square_x = 75;

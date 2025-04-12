@@ -270,6 +270,10 @@ void twr_window_menu_set_prop_boolean(twr_ioconsole_t* window, const char* prop_
 void twr_window_menu_set_prop_number(twr_ioconsole_t* window, const char* prop_name, double val);
 void twr_window_menu_set_prop_string(twr_ioconsole_t* window, const char* prop_name, const char* val);
 
+__attribute__((import_name("twrWindowSetTitle"))) void twrWindowSetTitle(int jsid, const char* title);
+void twr_window_set_title(twr_ioconsole_t* window, const char* title);
+__attribute__((import_name("twrWindowGetTitle"))) char* twrWindowGetTitle(int jsid);
+char* twr_window_get_title(twr_ioconsole_t* window);
 
 enum TwrWindowEvents {
    TWR_WINDOW_RESIZE_EVENT

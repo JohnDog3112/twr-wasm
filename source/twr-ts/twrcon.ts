@@ -123,6 +123,14 @@ export interface IConsoleWindow extends IConsoleBase, IConsoleEvents {
 
    twrWindowMenuSetProp: (mod: IWasmModuleAsync | IWasmModule, propNamePtr: number, dataPtr: number) => void,
    twrWindowMenuGetProp: (mod: IWasmModule, propNamePtr: number) => number,
+   twrWindowSetTitle: (mod: IWasmModule | IWasmModuleAsync, titlePtr: number) => void,
+   twrWindowGetTitle: (mod: IWasmModule) => number,
+}
+export interface IConsoleScreen extends IConsoleBase, IConsoleEvents {
+   twrScreenSpawnWindow: (mod: IWasmModule | IWasmModuleAsync, titlePtr?: number) => number;
+   twrScreenSetWindowLayer: (mod: IWasmModule | IWasmModuleAsync, window: number, layer: number) => void;
+   twrScreenMoveWindow: (mod: IWasmModule | IWasmModule, windowID: number, x: number, y: number) => void;
+   twrScreenCloseWindow: (mod: IWasmModule | IWasmModuleAsync, windowID: number) => void;
 }
 
 export interface IConsole extends IConsoleBase, Partial<IConsoleStreamOut>, Partial<IConsoleStreamIn>, Partial<IConsoleAddressable>, Partial<IConsoleDrawable>, Partial<IConsoleEvents> {}

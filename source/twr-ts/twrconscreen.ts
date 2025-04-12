@@ -1,6 +1,6 @@
 
 import { bindCanvasEvents, CanvasEventTypes, ICanvasEvents } from "./twrcanvasevents.js";
-import { keyEventToCodePoint } from "./twrcon.js";
+import { IConsoleScreen, keyEventToCodePoint } from "./twrcon.js";
 import { twrConsoleWindow } from "./twrconwindow.js";
 import { TLibImports, twrLibrary, twrLibraryInstanceRegistry } from "./twrlibrary.js";
 import { IWasmModule } from "./twrmod.js";
@@ -222,14 +222,17 @@ function areCursorStatesEqual(a: CursorState, b: CursorState): boolean {
          return a[1] == b[1];
    }
 }
-export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
+export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, IConsoleScreen {
    id: number;
 
-   readonly canvas: HTMLCanvasElement;
+   readonly element: HTMLCanvasElement;
    ctx: CanvasRenderingContext2D;
 
    imports: TLibImports = {
-      
+      twrScreenSpawnWindow: {},
+      twrScreenSetWindowLayer: {},
+      twrScreenMoveWindow: {},
+      twrScreenCloseWindow: {},
    };
    
 
@@ -257,19 +260,41 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
 
-      this.canvas = canvas;
+      this.element = canvas;
       this.ctx = canvas.getContext("2d")!;
 
       if (selfRegisterEvents)
-         bindCanvasEvents(this, this.canvas);
+         bindCanvasEvents(this, this.element);
 
       this.setMouseCursor = setMouseCursor ?? ((cursor: string) => {
-         this.canvas.style.cursor = cursor;
+         this.element.style.cursor = cursor;
       });
 
       for (let i = 0; i < 3; i++) {
          this.windowOrder[i] = new DoublyLinkedListRoot();
       }
+   }
+   getProp(propName: string) {
+      switch (propName) {
+         case "width":
+            return this.element.width;
+         case "height":
+            return this.element.height;
+         default:
+            return -1;
+      }
+   }
+   twrConGetProp(callingMod: IWasmModule | IWasmModuleAsync, pn: number) {
+      return this.getProp(callingMod.getString(pn));
+   }
+   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number) {
+
+   }
+   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number) {
+
+   }
+   twrUnregisterAllEvents(callingMod: IWasmModuleAsync | IWasmModule) {
+
    }
 
    private setCursorState(state: CursorState) {
@@ -375,17 +400,17 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    }
    //how much to change windowSpawnOffset every time a window is spawned
    readonly spawnOffsetChange = 25;
-   jsSpawnWindow(): twrConsoleWindow {
+   jsSpawnWindow(title?: string): twrConsoleWindow {
       const canvas = document.createElement("canvas");
       canvas.height = 500;
       canvas.width = 500;
-      if (this.windowSpawnOffset.x >= this.canvas.width-50) {
-         this.windowSpawnOffset.x = this.canvas.width > 100 ? this.baseWindowSpaceOffset.x : 5;
-         this.windowSpawnOffset.y = this.canvas.height > 100 ? this.baseWindowSpaceOffset.y : 5;
+      if (this.windowSpawnOffset.x >= this.element.width-50) {
+         this.windowSpawnOffset.x = this.element.width > 100 ? this.baseWindowSpaceOffset.x : 5;
+         this.windowSpawnOffset.y = this.element.height > 100 ? this.baseWindowSpaceOffset.y : 5;
          this.windowSpawnOffset.baseX = this.windowSpawnOffset.x;
       }
-      if (this.windowSpawnOffset.y >= this.canvas.height-50) {
-         this.windowSpawnOffset.y = this.canvas.height > 100 ? this.baseWindowSpaceOffset.y : 5;
+      if (this.windowSpawnOffset.y >= this.element.height-50) {
+         this.windowSpawnOffset.y = this.element.height > 100 ? this.baseWindowSpaceOffset.y : 5;
          this.windowSpawnOffset.baseX += this.spawnOffsetChange;
          this.windowSpawnOffset.x = this.windowSpawnOffset.baseX;
       }
@@ -408,7 +433,8 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
       const weakThis = new WeakRef(this);
       
       const window = new twrConsoleWindow(
-         canvas, 
+         canvas,
+         title,
          false, 
          twrConsoleScreen.internalChildDragFunction.bind(undefined, weakThis, weakWindowInfo), 
          twrConsoleScreen.internalChildResizeFunction.bind(undefined, weakThis, weakWindowInfo), 
@@ -428,9 +454,13 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
       return window;
    }
 
-   
-   twrScreenSpawnWindow(mod: IWasmModule | IWasmModuleAsync): number {
-      const window = this.jsSpawnWindow();
+   twrScreenSpawnWindow(mod: IWasmModule | IWasmModuleAsync, titlePtr?: number): number {
+      let window;
+      if (titlePtr == undefined) {
+         window = this.jsSpawnWindow();
+      } else {
+         window = this.jsSpawnWindow(mod.getString(titlePtr));
+      }
       return window.id;
    }
 
@@ -453,12 +483,16 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    }
 
 
-
    moveWindow(window: twrConsoleWindow, x: number, y: number) {
       const info = this.windows.get(window.id);
       assertDefined(info, "Error! twrConsoleWindow moveWindow: Given a window that isn't registered with this screen!");
       info.x = x;
       info.y = y;
+   }
+   twrScreenMoveWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number, x: number, y: number) {
+      const info = this.windows.get(windowID);
+      assertDefined(info, "Error! twrScreenMoveWindow: Given a windowID that isn't registered with this screen!");
+      this.moveWindow(info.window, x, y);
    }
 
    closeWindow(window: twrConsoleWindow) {
@@ -472,6 +506,11 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
          info.orderNode!.cutConnections();
          this.windows.delete(window.id);
       });
+   }
+   twrScreenCloseWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number) {
+      const info = this.windows.get(windowID);
+      assertDefined(info, "Error! twrConsoleCloseWindow: Given a windowID that isn't registered with this screen!");
+      this.closeWindow(info.window);
    }
 
    handleCanvasKeyEvent(event: CanvasEventTypes, key: number) {
@@ -707,7 +746,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents {
    }
    handleCanvasAnimationFrameEvent(event: CanvasEventTypes, delta: number) {
       this.ctx.fillStyle = "#87CEEB";
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.fillRect(0, 0, this.element.width, this.element.height);
       for (let layerID = this.windowOrder.length-1; layerID >= 0; layerID--) {
          this.internalRenderWindows(event, delta, this.windowOrder[layerID]);
       }

@@ -1642,7 +1642,12 @@ const MENU_PADDING_X = 5;
 const MENU_PADDING_Y = 4;
 const TOP_BAR_SIZE: number = 30;
 const BORDER_SIZE: number = 5;
+const TITLE_BAR_OFFSET = 3;
+const TITLE_BAR_SIZE: number = 15;
 const MENU_START_X = BORDER_SIZE;
+
+const TITLE_FONT = "12px Seriph";
+const TITLE_COLOR = "black";
 
 enum WidgetType {
    Button,
@@ -1728,16 +1733,33 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       twrRegisterEvent: {},
       twrUnregisterEvent: {},
       twrUnregisterAllEvents: {},
+      twrWindowSetTitle: {},
+      twrWindowGetTitle: {isAsyncFunction: true},
    };
 
    // every library should have this line
    libSourcePath = new URL(import.meta.url).pathname;
    interfaceName = "twrConsoleWindow";
 
-   calculatedrawCanvasDims(): [number, number] {
+   private menuBarUsed: boolean = false;
+   private renderMenuBar?: boolean;
+   private getTopBarSize(): number {
+      if (this.renderMenuBar == undefined) {
+         return TITLE_BAR_SIZE + (this.menuBarUsed ? TOP_BAR_SIZE : 0);
+      } else {
+         return TITLE_BAR_SIZE + (this.renderMenuBar ? TOP_BAR_SIZE : 0);
+      }
+   }
+   private usedMenuBar() {
+      if (!this.menuBarUsed) {
+         this.menuBarUsed = true;
+         this.resizeWindow(this.element.width, this.element.height);
+      }
+   }
+   private calculatedrawCanvasDims(): [number, number] {
       return [
          this.element.width - BORDER_SIZE*2.0,
-         this.element.height - BORDER_SIZE - TOP_BAR_SIZE,
+         this.element.height - BORDER_SIZE - this.getTopBarSize(),
       ];
    }
 
@@ -1749,7 +1771,8 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
    private cursorSection: WindowSections = WindowSections.Border; 
    private drawCanvasCursor: string = "auto";
    private widgetManagerCursor: string = "auto";
-   constructor(canvas: HTMLCanvasElement, selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number, event: CanvasEventTypes) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void, setMouseCursor?: (cursor: string) => void) {
+   private title: string;
+   constructor(canvas: HTMLCanvasElement, title: string = "Untitled", selfRegisterEvents: boolean = true, dragfunction?: (x: number, y: number, event: CanvasEventTypes) => void, resizeFunction?: (x: number, y: number, sides: ResizedSides, event: CanvasEventTypes) => void, setMouseCursor?: (cursor: string) => void) {
       // all library constructors should start with these two lines
       super();
       this.id=twrLibraryInstanceRegistry.register(this);
@@ -1801,7 +1824,9 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       const menuBarCons: MenuWidgetConstructor = {
          height: TOP_BAR_SIZE - 2,
       };
-      this.menu = this.manager.addChild(this.ctx, MenuBar, menuBarCons, this.widgetSettings, BORDER_SIZE + MENU_PADDING_X, 0);
+      this.menu = this.manager.addChild(this.ctx, MenuBar, menuBarCons, this.widgetSettings, BORDER_SIZE + MENU_PADDING_X, TITLE_BAR_SIZE);
+
+      this.title = title;
    }
 
    getProp(propName: string) {
@@ -1902,7 +1927,8 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
    }
    handleCanvasMouseEvent(event: CanvasEventTypes, x: number, y: number, button: number) {
       const n_x = x - BORDER_SIZE;
-      const n_y = y - TOP_BAR_SIZE;
+      const n_y = y - this.getTopBarSize();
+      const handleMenuBar = this.renderMenuBar ?? this.menuBarUsed;
 
       const resizeBorderSize: number = BORDER_SIZE;
       const topSection = y <= resizeBorderSize;
@@ -1926,9 +1952,9 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       } else if (resizeSide != 0) {
          this.resizeFunction(x, y, resizeSide, event);
          this.internalSetCursorSection(WindowSections.Border);
-      } else if (this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
+      } else if (handleMenuBar && this.manager.handleCanvasMouseEvent(this.ctx, event, x, y, button)) {
          this.internalSetCursorSection(WindowSections.Widgets);
-      } else if (y <= TOP_BAR_SIZE) {
+      } else if (y <= this.getTopBarSize()) {
          this.dragFunction(x, y, event);
          this.internalSetCursorSection(WindowSections.Border);
       } else if (
@@ -1959,7 +1985,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
       this.ctx.reset();
       //draw "app" canvas
-      this.ctx.drawImage(this.drawCanvas.element, BORDER_SIZE, TOP_BAR_SIZE);
+      this.ctx.drawImage(this.drawCanvas.element, BORDER_SIZE, this.getTopBarSize());
 
       const SELECT_GREY = "#D0D0D0";
       //draw border around it
@@ -1968,19 +1994,33 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       this.ctx.fillRect(this.element.width - BORDER_SIZE, 0, this.element.width, this.element.height);
       this.ctx.fillRect(0, this.element.height - BORDER_SIZE, this.element.width, this.element.height);
       
-      this.ctx.fillRect(0, 0, this.element.width, TOP_BAR_SIZE);
+      this.ctx.fillRect(0, 0, this.element.width, this.getTopBarSize());
 
       this.ctx.fillStyle = "grey";
       this.ctx.lineWidth = 1.0;
       
       this.ctx.beginPath();
-      this.ctx.moveTo(0, TOP_BAR_SIZE - this.ctx.lineWidth/2.0);
-      this.ctx.lineTo(this.element.width, TOP_BAR_SIZE - this.ctx.lineWidth/2.0);
+      this.ctx.moveTo(0, this.getTopBarSize() - this.ctx.lineWidth/2.0);
+      this.ctx.lineTo(this.element.width, this.getTopBarSize() - this.ctx.lineWidth/2.0);
       this.ctx.stroke();
       this.ctx.closePath();
 
+      this.ctx.font = TITLE_FONT;
+      this.ctx.fillStyle = TITLE_COLOR;
+      const tmpAlign = this.ctx.textBaseline;
+      this.ctx.textBaseline = "top"
+      const titleMeasure = this.ctx.measureText(this.title);
+      this.ctx.fillText(
+         this.title,
+         (this.element.width - Math.min(titleMeasure.width, this.element.width))/2,
+         TITLE_BAR_OFFSET,
+         this.element.width
+      )
+      this.ctx.textBaseline = tmpAlign;
 
-      this.manager.handleCanvasAnimationFrameEvent(this.ctx, event, delta);
+      const renderMenuBar = this.renderMenuBar ?? this.menuBarUsed;
+      if (renderMenuBar)
+         this.manager.handleCanvasAnimationFrameEvent(this.ctx, event, delta);
    }
 
    jsGetDrawCanvas() {
@@ -2008,6 +2048,8 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       });
 
       this.widgets.set(button.id, [WidgetType.SubMenu, button]);
+
+      this.usedMenuBar();
 
       return button;
    }
@@ -2773,5 +2815,21 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
 
    async handleClose() {
       
+   }
+
+   jsSetTitle(title: string) {
+      this.title = title;
+   }
+   twrWindowSetTitle(mod: IWasmModule | IWasmModuleAsync, titlePtr: number) {
+      this.jsSetTitle(mod.getString(titlePtr));
+   }
+   jsGetTitle(): string {
+      return this.title;
+   }
+   twrWindowGetTitle(mod: IWasmModule) {
+      return mod.putString(this.title);
+   }
+   async twrWindowGetTitle_async(mod: IWasmModuleAsync) {
+      return await mod.putString(this.title); 
    }
 }

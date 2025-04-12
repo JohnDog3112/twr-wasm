@@ -300,6 +300,12 @@ void twr_window_menu_set_prop_string(twr_ioconsole_t* window, const char* prop_n
    });
 }
 
+void twr_window_set_title(twr_ioconsole_t* window, const char* title) {
+   twrWindowSetTitle(__twr_get_jsid(window), title);
+}
+char* twr_window_get_title(twr_ioconsole_t* window) {
+   return twrWindowGetTitle(__twr_get_jsid(window));
+}
 
 void twr_window_register_event(twr_ioconsole_t* window, enum TwrWindowEvents event, int event_id) {
    twrRegisterEvent(__twr_get_jsid(window), event, event_id);

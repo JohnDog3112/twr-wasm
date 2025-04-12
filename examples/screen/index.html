@@ -33,8 +33,8 @@
             const screenCanvas = document.getElementById("screen");
             if (screenCanvas == undefined) throw new Error(`Screen example: couldn't find screen canvas!`);
             const screenConsole = new twrConsoleScreen(screenCanvas);
-            async function spawnWindowExample(wasmFiles, startFunc) {
-               const windowConsole = screenConsole.jsSpawnWindow();
+            async function spawnWindowExample(wasmFiles, startFunc, windowTitle) {
+               const windowConsole = screenConsole.jsSpawnWindow(windowTitle);
                const d2dCanvas = windowConsole.jsGetDrawCanvas();
                const mod = new modCon({io:{
                   window: windowConsole,
@@ -51,13 +51,13 @@
                async: "../window/window-a.wasm",
                sync: "../window/window.wasm"
             };
-            spawnWindowExample(windowWasmFiles, "init");
-            spawnWindowExample(windowWasmFiles, "init");
+            spawnWindowExample(windowWasmFiles, "init", "Window Example (1)");
+            spawnWindowExample(windowWasmFiles, "init", "Window Example (2)");
             const pongWasmFiles = {
                async: "../pong/entry-point-a.wasm",
                sync: "../pong/entry-point.wasm"
             };
-            spawnWindowExample(pongWasmFiles, "initMenu");
+            spawnWindowExample(pongWasmFiles, "initMenu", "Pong");
          </script>
     </body>
 </html>

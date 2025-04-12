@@ -1,4 +1,4 @@
-import {IConsoleStreamOut, IConsoleStreamIn, IConsoleCanvas, IConsoleAddressable, ICanvasProps, IConsoleWindow } from "./twrcon.js"
+import {IConsoleStreamOut, IConsoleStreamIn, IConsoleCanvas, IConsoleAddressable, ICanvasProps, IConsoleWindow, IConsoleScreen } from "./twrcon.js"
 import {IWasmModuleAsync} from "./twrmodasync.js";
 import {IWasmModule} from "./twrmod.js"
 import {twrLibrary, TLibImports, twrLibraryInstanceRegistry} from "./twrlibrary.js";
@@ -8,7 +8,7 @@ import {twrLibrary, TLibImports, twrLibraryInstanceRegistry} from "./twrlibrary.
 // These functions should never be called, because twrLibrary routes a call (like io_cls(id)) to the correct console instance based on id
 // see TODO comments in twrLibrary.ts for possible better fixes
 
-export default class twrConsoleDummy extends twrLibrary implements IConsoleStreamIn, IConsoleStreamOut, IConsoleAddressable, IConsoleCanvas, IConsoleWindow  {
+export default class twrConsoleDummy extends twrLibrary implements IConsoleStreamIn, IConsoleStreamOut, IConsoleAddressable, IConsoleCanvas, IConsoleWindow, IConsoleScreen  {
    id:number;
 
    imports:TLibImports = {
@@ -43,6 +43,13 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       twrWindowMenuListProps: {isAsyncFunction: true},
       twrWindowMenuSetProp: {isAsyncFunction: true},
       twrWindowMenuGetProp: {},
+      twrWindowSetTitle: {},
+      twrWindowGetTitle: {isAsyncFunction: true},
+
+      twrScreenSpawnWindow: {},
+      twrScreenSetWindowLayer: {},
+      twrScreenMoveWindow: {},
+      twrScreenCloseWindow: {},
    };
 
    libSourcePath = new URL(import.meta.url).pathname;
@@ -187,4 +194,23 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       throw new Error("internal Error");
    }
 
+   twrWindowSetTitle(mod: IWasmModule | IWasmModuleAsync, titlePtr: number) {
+      throw new Error("internal Error");
+   }
+   twrWindowGetTitle(mod: IWasmModule): number {
+      throw new Error("internal Error");
+   }
+
+   twrScreenSpawnWindow(mod: IWasmModule | IWasmModuleAsync, titlePtr?: number): number {
+      throw new Error("internal error");
+   }
+   twrScreenSetWindowLayer(mod: IWasmModule | IWasmModuleAsync, window: number, layer: number) {
+      throw new Error("internal error");
+   }
+   twrScreenMoveWindow(mod: IWasmModule | IWasmModule, windowID: number, x: number, y: number) {
+      throw new Error("internal error");
+   }
+   twrScreenCloseWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number) {
+      throw new Error("internal error");
+   }
 }
