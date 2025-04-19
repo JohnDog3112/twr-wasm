@@ -37,6 +37,7 @@
                const windowConsole = screenConsole.jsSpawnWindow(windowTitle);
                const d2dCanvas = windowConsole.jsGetDrawCanvas();
                const mod = new modCon({io:{
+                  screen: screenConsole,
                   window: windowConsole,
                   d2dcanvas: d2dCanvas,
                }});

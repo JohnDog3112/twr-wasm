@@ -521,7 +521,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, ICons
       this.internalSetWindowLayer(windowInfo, layer);
    }
 
-   jsSpawnPopupWindow(window: twrConsoleWindow, width: number = 50, height: number = 50, x?: number, y?: number): twrConsoleWindow {
+   jsSpawnPopupWindow(window: twrConsoleWindow, title?: string, width: number = 50, height: number = 50, x?: number, y?: number): twrConsoleWindow {
       const windowInfo = this.windows.get(window.id);
       if (windowInfo == undefined) throw new Error(`twrScreenSpawnPopupWindow was given a window not registered with this screen!`);
       
@@ -587,6 +587,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, ICons
       
       const popupWindow = new twrConsoleWindow(
          canvas, 
+         title,
          false, 
          twrConsoleScreen.internalChildDragFunction.bind(undefined, weakThis, weakPopupInfo), 
          twrConsoleScreen.internalChildResizeFunction.bind(undefined, weakThis, weakPopupInfo), 
@@ -603,11 +604,12 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, ICons
 
       return popupWindow;
    }
-   twrScreenSpawnPopupWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number, width?: number, height?: number, x?: number, y?: number) {
+   twrScreenSpawnPopupWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number, title?: number, width?: number, height?: number, x?: number, y?: number) {
       const windowInfo = this.windows.get(windowID);
       if (windowInfo == undefined) throw new Error(`twrScreenSpawnPopupWindow was given a window not registered with this screen!`);
       const popupWindow = this.jsSpawnPopupWindow(
          windowInfo.window,
+         (title == undefined || title == 0) ? "" : mod.getString(title),
          this.internalSetNegativesUndefined(width),
          this.internalSetNegativesUndefined(height),
          this.internalSetNegativesUndefined(x),
@@ -692,24 +694,6 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, ICons
       const info = this.windows.get(windowID);
       assertDefined(info, "Error! twrScreenMoveWindow: Given a windowID that isn't registered with this screen!");
       this.moveWindow(info.window, x, y);
-   }
-
-   closeWindow(window: twrConsoleWindow) {
-      const info = this.windows.get(window.id);
-      assertDefined(info, "Error! twrConsoleWindow closeWindow: Given a window that isn't registered with this screen!");
-
-      window.handleClose().then(() => {
-         if (this.clickedWindow == info) {
-            this.clickedWindow = undefined;
-         }
-         info.orderNode!.cutConnections();
-         this.windows.delete(window.id);
-      });
-   }
-   twrScreenCloseWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number) {
-      const info = this.windows.get(windowID);
-      assertDefined(info, "Error! twrConsoleCloseWindow: Given a windowID that isn't registered with this screen!");
-      this.closeWindow(info.window);
    }
 
    handleCanvasKeyEvent(event: CanvasEventTypes, key: number) {
