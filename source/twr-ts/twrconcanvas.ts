@@ -98,6 +98,7 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
       twrConGetProp:{},
       twrConDrawSeq:{},
       twrConLoadImage:{isModuleAsyncOnly:true, isAsyncFunction:true},
+      twrConLoadImageSync: {},
       twrRegisterEvent:{},
       twrUnregisterEvent:{},
       twrUnregisterAllEvents:{},
@@ -243,7 +244,7 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
       return this.getProp(propName);
    }
 
-   twrConLoadImage_async(mod: IWasmModuleAsync, urlPtr: number, id: number) : Promise<number> {
+   async internalLoadImage(mod: IWasmModuleAsync | IWasmModule, urlPtr: number, id: number): Promise<number> {
       return new Promise( (resolve)=>{
          const url = mod.wasmMem.getString(urlPtr);
          const fullID = calculateID(mod, id);
@@ -255,13 +256,26 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
          };
          img.onerror = () => {
             console.log("Warning: D2D_LOADIMAGE: failed to load image " + url);
-            resolve(1);
+            resolve(0);
          }
 
          img.src = url;
 
          this.precomputedObjects[fullID] = img;
       });
+   }
+   twrConLoadImage_async(mod: IWasmModuleAsync, urlPtr: number, id: number) : Promise<number> {
+      return this.internalLoadImage(mod, urlPtr, id);
+   }
+   twrConLoadImageSync(mod: IWasmModule | IWasmModuleAsync, urlPtr: number, id: number, eventID: number, extraPtr?: number) {
+      this.internalLoadImage(mod, urlPtr, id)
+         .then((val) => {
+            if (extraPtr != undefined) {
+               mod.postEvent(eventID, val, extraPtr);
+            } else {
+               mod.postEvent(eventID, val);
+            }
+         });
    }
 
    /* see draw2d.h for structs that match */

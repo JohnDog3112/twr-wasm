@@ -27,6 +27,7 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       twrConSetColors:{noBlock:true},
       twrConDrawSeq:{},
       twrConLoadImage:{isModuleAsyncOnly:true, isAsyncFunction:true},
+      twrConLoadImageSync: {},
       twrRegisterEvent:{},
       twrUnregisterEvent:{},
       twrUnregisterAllEvents:{},
@@ -141,6 +142,9 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
    }
 
    twrConLoadImage_async(mod: IWasmModuleAsync, urlPtr: number, id: number) : Promise<number> {
+      throw new Error("internal error");
+   }
+   twrConLoadImageSync(mod: IWasmModule | IWasmModuleAsync, urlPtr: number, id: number, eventID: number, extraPtr?: number) {
       throw new Error("internal error");
    }
 
