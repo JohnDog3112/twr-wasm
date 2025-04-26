@@ -4,10 +4,21 @@
 #include "twr-screen.h"
 #include "math.h"
 #include<stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define TRUE 1
 #define FALSE 0
 
+const double IMAGE_WIDTH = 50;
+const double IMAGE_HEIGHT = 50;
+const double ICON_X_PADDING = 10;
+const double ICON_Y_PADDING = 10;
+const double ICON_WIDTH = 70;
+const double ICON_HEIGHT = 70;
+
+const double IMAGE_X_OFFSET = (ICON_WIDTH - IMAGE_WIDTH)/2.0;
+const double IMAGE_Y_OFFSET = 0.0;
 
 
 struct dVec2 {
@@ -28,11 +39,17 @@ struct MainWindowInfo {
    struct dVec2 canvas_size;
    struct MainWindowEvents events;
 };
+struct IconTextLine {
+   struct dVec2 offset;
+   const char* text;
+};
 struct Icon {
    const char* image_src;
    int image_id;
    int initialized;
    const char* item_name;
+   size_t num_text_lines;
+   struct IconTextLine text_lines[3];
 };
 
 struct GlobalEvents {
@@ -53,7 +70,18 @@ struct GlobalState global_state = {
    .initialized = FALSE,
    .objectID = 0,
 };
-void init_icon(struct Icon* icon, const char* image_src, const char* item_name) {
+void setup_icon_text(struct d2d_draw_seq* ds, struct Icon* icon) {
+   for (size_t i = 0; i < icon->num_text_lines; i++) {
+      free(icon->text_lines[i].text);
+   }
+   char* main_text = strdup(icon->item_name);
+   struct d2d_text_metrics metrics;
+   d2d_measuretext(ds, main_text, &metrics);
+
+   // for (size_t i = 0; i < )
+
+}
+void init_icon(struct d2d_draw_seq* ds, struct Icon* icon, const char* image_src, const char* item_name) {
    *icon = (struct Icon) {
       .image_src = image_src,
       .image_id = global_state.objectID++,
@@ -98,10 +126,14 @@ int init() {
       .icon_image_load_event_id = twr_register_callback("iconImageLoadEvent")
    };
 
+   struct d2d_draw_seq* ds = d2d_start_draw_sequence_with_con(100, main_window_info->canvas);
+
    struct Icon* icons = global_state.icons;
-   init_icon(&icons[0], "icons/pong.png", "Pong");
-   init_icon(&icons[1], "icons/window_example.png", "Window Example");
-   init_icon(&icons[2],"icons/app_opener.png", "App Opener");
+   init_icon(ds, &icons[0], "icons/pong.png", "Pong");
+   init_icon(ds, &icons[1], "icons/window_example.png", "Window Example");
+   init_icon(ds, &icons[2], "icons/app_opener.png", "App Opener");
+
+   d2d_end_draw_sequence(ds);
    
    
    return TRUE;
@@ -124,22 +156,31 @@ void icon_image_load_event(int event_id, int success, struct Icon* icon) {
    }
 }
 
-
-const double IMAGE_WIDTH = 50;
-const double IMAGE_HEIGHT = 50;
-const double ICON_X_PADDING = 10;
-const double ICON_Y_PADDING = 10;
-const double ICON_WIDTH = 70;
-const double ICON_HEIGHT = 70;
 __attribute__((export_name("mainWindowAnimationLoop")))
 void main_window_animation_loop(int event_id, int delta_t) {
-   int icons_per_row = ceil(global_state.main_window_info.canvas_size.x/ICON_WIDTH);
+   struct d2d_draw_seq* ds = d2d_start_draw_sequence_with_con(100, global_state.main_window_info.canvas);
+   struct MainWindowInfo* main_window_info = &global_state.main_window_info;
+   struct dVec2 canvas_size = main_window_info->canvas_size;
+
+   d2d_setfillstylergba(ds, 0xFF00FFFF);
+   d2d_fillrect(ds, 0, 0, canvas_size.x, canvas_size.y);
+
+
+   int icons_per_row = ceil(canvas_size.x/ICON_WIDTH);
 
    int row = 0;
    int column = 0;
+   struct Icon* icons = global_state.icons;
    for (int i = 0; i < NUM_ICONS; i++) {
-      double x = row*ICON_WIDTH;
+      double x = row*ICON_WIDTH + (row-1)*ICON_X_PADDING;
+      double y = column*ICON_HEIGHT + (column-1)*ICON_Y_PADDING;
+
+      d2d_drawimage_ex(ds, icons[i].image_id, 0, 0, 0, 0, x+IMAGE_X_OFFSET, y+IMAGE_Y_OFFSET, IMAGE_WIDTH, IMAGE_HEIGHT);
+
+
    }
+
+   d2d_end_draw_sequence(ds);
 }
 
 __attribute__((export_name("mainWindowMouseEvent")))
