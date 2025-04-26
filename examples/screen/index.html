@@ -33,15 +33,19 @@
             const screenCanvas = document.getElementById("screen");
             if (screenCanvas == undefined) throw new Error(`Screen example: couldn't find screen canvas!`);
             const screenConsole = new twrConsoleScreen(screenCanvas);
-            async function spawnWindowExample(wasmFiles, startFunc, windowTitle) {
-               const windowConsole = screenConsole.jsSpawnWindow(windowTitle);
-               const d2dCanvas = windowConsole.jsGetDrawCanvas();
-               const mod = new modCon({io:{
-                  screen: screenConsole,
-                  window: windowConsole,
-                  d2dcanvas: d2dCanvas,
-               }});
-               console.log("id: ", d2dCanvas.id);
+            async function spawnWindowExample(wasmFiles, startFunc, windowTitle, bindWindow = true) {
+               let modOptions = {
+                  screen: screenConsole
+               };
+               if (bindWindow) {
+                  const windowConsole = screenConsole.jsSpawnWindow(windowTitle);
+                  const d2dCanvas = windowConsole.jsGetDrawCanvas();
+                  modOptions.window = windowConsole;
+                  modOptions.d2dcanvas = d2dCanvas;
+                  console.log("id: ", d2dCanvas.id);
+               }
+               
+               const mod = new modCon({io:modOptions});
                await mod.loadWasm(is_async ? wasmFiles.async : wasmFiles.sync);
 
                await mod.callC([startFunc]);
@@ -59,6 +63,11 @@
                sync: "../pong/entry-point.wasm"
             };
             spawnWindowExample(pongWasmFiles, "initMenu", "Pong");
+            const appSpawnerFiles = {
+               async: "screen-a.wasm",
+               sync: "screen.wasm"
+            };
+            spawnWindowExample(appSpawnerFiles, "init", "App Spawner", false)
          </script>
     </body>
 </html>
