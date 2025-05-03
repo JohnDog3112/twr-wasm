@@ -27,13 +27,19 @@
             import jsEventsLib from "../pong/out/jsEventsLib.js"  // libraries use default export
             const jsEventsLibInit=new jsEventsLib();  //will register itself
 
+            
+
             // const windowCanvas = document.getElementById("window");
             // if (windowCanvas == undefined) throw new Error(`Window example: Couldn't find window canvas!`);
             // const windowConsole = new twrConsoleWindow(windowCanvas);
             const screenCanvas = document.getElementById("screen");
             if (screenCanvas == undefined) throw new Error(`Screen example: couldn't find screen canvas!`);
             const screenConsole = new twrConsoleScreen(screenCanvas);
-            async function spawnWindowExample(wasmFiles, startFunc, windowTitle, bindWindow = true) {
+
+            import appSpawner from "./out/appSpawner.js"
+            const appSpawnerInit=new appSpawner(is_async, screenConsole);
+
+            async function spawnWindowExample(wasmFiles, startFunc, windowTitle, bindWindow = true, initArgs = []) {
                let modOptions = {
                   screen: screenConsole
                };
@@ -48,7 +54,7 @@
                const mod = new modCon({io:modOptions});
                await mod.loadWasm(is_async ? wasmFiles.async : wasmFiles.sync);
 
-               await mod.callC([startFunc]);
+               await mod.callC([startFunc, ...initArgs]);
 
                return mod;
             }
@@ -67,7 +73,7 @@
                async: "screen-a.wasm",
                sync: "screen.wasm"
             };
-            spawnWindowExample(appSpawnerFiles, "init", "App Spawner", false)
+            spawnWindowExample(appSpawnerFiles, "init", "App Spawner", false, [is_async ? 1 : 0])
          </script>
     </body>
 </html>

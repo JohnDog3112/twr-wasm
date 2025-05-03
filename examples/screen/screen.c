@@ -49,7 +49,33 @@ struct IconTextLine {
    struct dVec2 offset;
    const char* text;
 };
+
+enum IconClickActionType {
+   ICON_ACTION_OPEN_APP,
+   ICON_ACTION_OPEN_POPUP,
+   ICON_ACTION_NONE,
+};
+struct IconClickActionOpenApp {
+   const char* sync_path_str;
+   const char* async_path_str;
+   const char* init_function;
+   size_t init_args_len;
+   const long* init_args;
+   const char* app_title;
+   int bind_window;
+};
+struct IconClickActionPopup {
+
+};
+struct IconClickAction {
+   enum IconClickActionType type;
+   union {
+      struct IconClickActionOpenApp open_app;
+      struct IconClickActionPopup popup;
+   };
+};
 struct Icon {
+   struct IconClickAction action; 
    const char* image_src;
    int image_id;
    int initialized;
@@ -62,7 +88,7 @@ struct GlobalEvents {
    int icon_image_load_event_id;
 };
 
-#define NUM_ICONS 10
+#define NUM_ICONS 3
 struct GlobalState {
    twr_ioconsole_t* screen;
    struct MainWindowInfo main_window_info;
@@ -71,6 +97,7 @@ struct GlobalState {
    struct GlobalEvents global_events;
    int objectID;
    int initialized;
+   int is_async;
 };
 struct GlobalState global_state = {
    .initialized = FALSE,
@@ -166,6 +193,9 @@ void setup_icon_text(struct d2d_draw_seq* ds, struct Icon* icon) {
 }
 void init_icon(struct d2d_draw_seq* ds, struct Icon* icon, const char* image_src, const char* item_name) {
    *icon = (struct Icon) {
+      .action = {
+         .type = ICON_ACTION_NONE,
+      },
       .image_src = image_src,
       .image_id = global_state.objectID++,
       .initialized = 0,
@@ -183,11 +213,12 @@ void init_icon(struct d2d_draw_seq* ds, struct Icon* icon, const char* image_src
 }
 
 __attribute__((export_name("init")))
-int init() {
+int init(int is_async) {
    if (global_state.initialized) {
       return FALSE;
    }
    global_state.initialized = TRUE;
+   global_state.is_async = is_async;
 
    global_state.screen = twr_get_console("screen");
 
@@ -250,11 +281,47 @@ int init() {
 
    struct Icon* icons = global_state.icons;
    init_icon(ds, &icons[0], "icons/pong.png", "Pong");
+   icons[0].action = (struct IconClickAction){
+      .type = ICON_ACTION_OPEN_APP,
+      .open_app = {
+         .app_title = "Pong",
+         .async_path_str = "../pong/entry-point-a.wasm",
+         .sync_path_str = "../pong/entry-point.wasm",
+         .init_args_len = 0,
+         .init_args = NULL,
+         .init_function = "initMenu",
+         .bind_window = TRUE,
+      }
+   };
    init_icon(ds, &icons[1], "icons/window_example.png", "Window Example");
+   icons[1].action = (struct IconClickAction) {
+      .type = ICON_ACTION_OPEN_APP,
+      .open_app = {
+         .app_title = "Window Example",
+         .async_path_str = "../window/window-a.wasm",
+         .sync_path_str = "../window/window.wasm",
+         .init_args_len = 0,
+         .init_args = NULL,
+         .init_function = "init",
+         .bind_window = TRUE,
+      }
+   };
+
+   long* app_opener_args = (long*)malloc(sizeof(long) * 1);
+   app_opener_args[0] = is_async;
    init_icon(ds, &icons[2], "icons/app_opener.png", "App Opener");
-   for (size_t i = 3; i < NUM_ICONS; i++) {
-      init_icon(ds, &icons[i], "icons/app_opener.png", "App Opener");
-   }
+   icons[2].action = (struct IconClickAction) {
+      .type = ICON_ACTION_OPEN_APP,
+      .open_app = {
+         .app_title = "App Opener",
+         .async_path_str = "./screen-a.wasm",
+         .sync_path_str = "./screen.wasm",
+         .init_args_len = 1,
+         .init_args = app_opener_args,
+         .init_function = "init",
+         .bind_window = FALSE,
+      }
+   };
 
    d2d_end_draw_sequence(ds);
    
@@ -325,6 +392,9 @@ void main_window_animation_loop(int event_id, int delta_t) {
    d2d_end_draw_sequence(ds);
 }
 
+__attribute__((import_name("spawnApplication")))
+void spawn_application(const char* title, const char* path, const char* init_func, const long* init_args, size_t init_args_len, int bind_window);
+
 __attribute__((export_name("mainWindowMouseEvent")))
 void main_window_mouse_event(int event_id, int mouse_x, int mouse_y, int button) {
    int row = 0;
@@ -342,8 +412,34 @@ void main_window_mouse_event(int event_id, int mouse_x, int mouse_y, int button)
       if (
          x <= mouse_x && mouse_x <= x+ICON_WIDTH
          && y <= mouse_y && mouse_y <= y+ICON_HEIGHT
+         && event_id == global_state.main_window_info.events.mouse_double_click_event_id
+         && button == 0
       ) {
-         printf("Clicked on: %s\n", global_state.icons[i].item_name);
+         // printf("Clicked on: %s, with button %d\n", global_state.icons[i].item_name, button);
+         struct Icon* icon = &global_state.icons[i];
+         switch (icon->action.type) {
+            case ICON_ACTION_NONE:
+               //do nothing
+            break;
+            
+            case ICON_ACTION_OPEN_APP:
+            {
+               struct IconClickActionOpenApp* action = &icon->action.open_app;
+               spawn_application(
+                  action->app_title,
+                  global_state.is_async ? action->async_path_str : action->sync_path_str,
+                  action->init_function,
+                  action->init_args,
+                  action->init_args_len,
+                  action->bind_window
+               );
+            }
+            break;
+
+            case ICON_ACTION_OPEN_POPUP:
+               //TODO
+            break;
+         }
       }
    }
 }

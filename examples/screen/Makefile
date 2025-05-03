@@ -8,7 +8,7 @@ $(info $(shell mkdir -p out))
 
 .PHONY: default
 
-default: screen.wasm screen-a.wasm pong window
+default: screen.wasm screen-a.wasm pong window out/appSpawner.js
 
 pong:
 	(cd ../pong && make)
@@ -29,6 +29,9 @@ screen.wasm: screen.o
 screen-a.wasm: screen-a.o
 	wasm-ld screen-a.o ../../lib-c/twr.a -o screen-a.wasm \
 		--no-entry --shared-memory --no-check-features --initial-memory=4063232 --max-memory=4063232 \
+
+out/appSpawner.js: appSpawner.ts
+	tsc
 
 clean:
 	rm -f *.o
