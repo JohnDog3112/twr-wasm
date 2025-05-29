@@ -1,4 +1,4 @@
-import { bindCanvasEvents, CanvasEventTypes, ICanvasEvents } from "./twrcanvasevents.js";
+import { bindCanvasEvents, CanvasEventTypes, EventRegistrations, ICanvasEvents } from "./twrcanvasevents.js";
 import { IConsole, IConsoleBaseProps, IConsoleEvents, IConsoleWindow } from "./twrcon.js";
 import twrConsoleCanvas from "./twrconcanvas.js";
 import { ResizedSides } from "./twrconscreen.js";
@@ -1675,7 +1675,9 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
    drawCanvasHeight: number;
    readonly drawCanvas: twrConsoleCanvas;
 
-   private windowEventHandlers: Map<WindowEventTypes, [WeakRef<IWasmModule|IWasmModuleAsync>, number][]> = new Map();
+   // private windowEventHandlers: Map<WindowEventTypes, [WeakRef<IWasmModule|IWasmModuleAsync>, number][]> = new Map();
+   private windowEventRegistration: EventRegistrations<WindowEventTypes> = new EventRegistrations();
+
    widgets: Map<
       number, 
       [WidgetType.Button, Button]
@@ -1839,64 +1841,68 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
    };
 
    private internalSendEvent(eventType: WindowEventTypes, ...extraArgs: number[]) {
-      const handlers = this.windowEventHandlers.get(eventType);
-      if (handlers == undefined) return;
+      // const handlers = this.windowEventHandlers.get(eventType);
+      // if (handlers == undefined) return;
 
-      // for (const [mod, eventID] of handlers) {
-      //    mod.postEvent(eventID, ...extraArgs);
+      // // for (const [mod, eventID] of handlers) {
+      // //    mod.postEvent(eventID, ...extraArgs);
+      // // }
+      // for (let i = handlers.length-1; i >= 0; i--) {
+      //    const [mod, eventID] = handlers[i];
+      //    const derefedMod = mod.deref();
+      //    if (derefedMod) {
+      //       derefedMod.postEvent(eventID, ...extraArgs);
+      //    } else {
+      //       handlers.splice(i, 1);
+      //    }
       // }
-      for (let i = handlers.length-1; i >= 0; i--) {
-         const [mod, eventID] = handlers[i];
-         const derefedMod = mod.deref();
-         if (derefedMod) {
-            derefedMod.postEvent(eventID, ...extraArgs);
-         } else {
-            handlers.splice(i, 1);
-         }
-      }
+      this.windowEventRegistration.runEvent(eventType, ...extraArgs);
    }
 
-   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number) {
+   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number, extraPtr: number) {
       if (WindowEventTypes[eventType] == undefined) throw new Error(`twrRegisterEvent: Invalid event type (${eventType}) for twrConsoleWindow!`);
       const event: WindowEventTypes = eventType as WindowEventTypes;
 
-      const eventHandlersTmp = this.windowEventHandlers.get(event);
-      const eventHandlers = eventHandlersTmp ?? [];
-      if (eventHandlersTmp == undefined) {
-         this.windowEventHandlers.set(event, eventHandlers);
-      }
+      return this.windowEventRegistration.registerEvent(callingMod, event, eventID, extraPtr);
+      // const eventHandlersTmp = this.windowEventHandlers.get(event);
+      // const eventHandlers = eventHandlersTmp ?? [];
+      // if (eventHandlersTmp == undefined) {
+      //    this.windowEventHandlers.set(event, eventHandlers);
+      // }
 
-      for (let i = 0; i < eventHandlers.length; i++) {
-         if (eventHandlers[i][0].deref() == callingMod && eventHandlers[i][1] == eventID)
-            throw new Error(`twrRegisterEvent: eventID ${eventID} is already registered for module ${callingMod.id}!`);
-      }
+      // for (let i = 0; i < eventHandlers.length; i++) {
+      //    if (eventHandlers[i][0].deref() == callingMod && eventHandlers[i][1] == eventID)
+      //       throw new Error(`twrRegisterEvent: eventID ${eventID} is already registered for module ${callingMod.id}!`);
+      // }
 
-      eventHandlers.push([new WeakRef(callingMod), eventID]);
+      // eventHandlers.push([new WeakRef(callingMod), eventID]);
    }
-   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number) {
-      if (WindowEventTypes[eventType] == undefined) throw new Error(`twrUnregisterEvent: Invalid event type ${eventType} for twrConsoleWindow!`);
-      const event: WindowEventTypes = eventType as WindowEventTypes;
+   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventID: number) {
+      return this.windowEventRegistration.unregisterEvent(callingMod, eventID);
+      // if (WindowEventTypes[eventType] == undefined) throw new Error(`twrUnregisterEvent: Invalid event type ${eventType} for twrConsoleWindow!`);
+      // const event: WindowEventTypes = eventType as WindowEventTypes;
       
-      const eventHandlers = this.windowEventHandlers.get(event);
-      if (eventHandlers == undefined || eventHandlers.length == 0)
-         throw new Error(`twrUnregisterEvent: There are no events registered for event type ${WindowEventTypes[eventType]}!`);
+      // const eventHandlers = this.windowEventHandlers.get(event);
+      // if (eventHandlers == undefined || eventHandlers.length == 0)
+      //    throw new Error(`twrUnregisterEvent: There are no events registered for event type ${WindowEventTypes[eventType]}!`);
 
-      for (let i = eventHandlers.length-1; i >= 0; i--) {
-         if (eventHandlers[i][0].deref() == callingMod && eventHandlers[i][1] == eventID) {
-            eventHandlers.splice(i, 1);
-            return;
-         }
-      }
-      throw new Error(`twrUnregisterEvent: eventID ${eventID} isn't registered for event type ${WindowEventTypes[eventType]} with module ${callingMod.id}!`);
+      // for (let i = eventHandlers.length-1; i >= 0; i--) {
+      //    if (eventHandlers[i][0].deref() == callingMod && eventHandlers[i][1] == eventID) {
+      //       eventHandlers.splice(i, 1);
+      //       return;
+      //    }
+      // }
+      // throw new Error(`twrUnregisterEvent: eventID ${eventID} isn't registered for event type ${WindowEventTypes[eventType]} with module ${callingMod.id}!`);
    }
    twrUnregisterAllEvents(callingMod: IWasmModuleAsync | IWasmModule) {
-      for (const [, handlers] of this.windowEventHandlers) {
-         for (let i = handlers.length-1; i >= 0; i--) {
-            if (handlers[i][0].deref() == callingMod) {
-               handlers.splice(i, 1);
-            }
-         }
-      }
+      // for (const [, handlers] of this.windowEventHandlers) {
+      //    for (let i = handlers.length-1; i >= 0; i--) {
+      //       if (handlers[i][0].deref() == callingMod) {
+      //          handlers.splice(i, 1);
+      //       }
+      //    }
+      // }
+      this.windowEventRegistration.unregisterAllEvents(callingMod);
    }
 
    handleCanvasKeyEvent(event: CanvasEventTypes, key: number) {

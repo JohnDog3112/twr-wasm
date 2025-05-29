@@ -16,7 +16,7 @@ OBJECTS_ASYNC := $(patsubst %, $(OBJOUTDIR)/async-%, $(OBJECTS_RAW))
 
 .PHONY: default
 
-default: jsEventsLib.js entry-point.wasm entry-point-a.wasm
+default: out/jsEventsLib.js entry-point.wasm entry-point-a.wasm
 
 $(OBJOUTDIR)/canvas.o: $(CPPLIB)/canvas.cpp $(CPPLIB)/canvas.h
 	clang $(CFLAGS)  $< -o $@
@@ -31,7 +31,7 @@ $(OBJOUTDIR)/async-canvas.o: $(CPPLIB)/canvas.cpp $(CPPLIB)/canvas.h
 $(OBJOUTDIR)/async-%.o: %.cpp $(HEADERS)
 	clang $(CFLAGS)  $< -o $@ -DASYNC
 
-jsEventsLib.js: jsEventsLib.ts
+out/jsEventsLib.js: jsEventsLib.ts
 	tsc
 
 entry-point.wasm: $(OBJECTS)

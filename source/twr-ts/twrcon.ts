@@ -98,8 +98,8 @@ export interface IConsoleDrawable {
 }
 
 export interface IConsoleEvents {
-   twrRegisterEvent: (callingMod:IWasmModuleAsync|IWasmModule, eventType: number, eventID: number) => void,
-   twrUnregisterEvent: (callingMod: IWasmModuleAsync|IWasmModule, eventType: number, eventID: number) => void,
+   twrRegisterEvent: (callingMod:IWasmModuleAsync|IWasmModule, eventType: number, eventID: number, extraPtr: number) => number,
+   twrUnregisterEvent: (callingMod: IWasmModuleAsync|IWasmModule, eventID: number) => boolean,
    twrUnregisterAllEvents: (callingMod: IWasmModuleAsync|IWasmModule) => void,
 }
 

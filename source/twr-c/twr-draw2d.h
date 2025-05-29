@@ -539,10 +539,10 @@ void d2d_setcanvaspropstring(struct d2d_draw_seq* ds, const char* prop_name, con
 
 long d2d_doesidexist(struct d2d_draw_seq* ds, long id);
 
-void d2d_register_event(enum D2DEvent eventType, int eventID);
-void d2d_register_event_with_con(enum D2DEvent eventType, int eventID, twr_ioconsole_t * con);
-void d2d_unregister_event(enum D2DEvent eventType, int eventID);
-void d2d_unregister_event_with_con(enum D2DEvent eventType, int eventID, twr_ioconsole_t * con);
+void d2d_register_event(enum D2DEvent eventType, int eventID, void* extraPtr);
+void d2d_register_event_with_con(enum D2DEvent eventType, int eventID, void* extraPtr, twr_ioconsole_t * con);
+void d2d_unregister_event(int eventID);
+void d2d_unregister_event_with_con(int eventID, twr_ioconsole_t * con);
 void d2d_unregister_all_events();
 void d2d_unregister_all_events_with_con(twr_ioconsole_t * con);
 

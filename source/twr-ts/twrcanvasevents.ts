@@ -1,4 +1,6 @@
 import { keyEventToCodePoint } from "./twrcon.js";
+import { IWasmModule } from "./twrmod.js";
+import { IWasmModuleAsync } from "./twrmodasync.js";
 
 export enum CanvasEventTypes {
    KEY_DOWN,
@@ -178,4 +180,113 @@ export function bindCanvasEvents(handler: ICanvasEvents, canvas: HTMLCanvasEleme
       requestAnimationFrame(animation_loop);
    };
    requestAnimationFrame(animation_loop);
+}
+
+export ///modID -> [module, eventID -> numRegistrations]
+class EventRegistrations<T> {
+   private events: Map<
+      T, // event type enum
+      Map< //map of ModID -> [Mod, Map<EventID, extraPtr]>]
+         number, //ModID
+         [
+            WeakRef<IWasmModule|IWasmModuleAsync>, // Mod
+            Map<
+               number, //EventID 
+               number //extraPtr
+            > 
+         ]
+      >
+   > = new Map();
+
+   //maps [Mod, EventID] to the type of event
+   private linearlyMappedIDs: WeakMap<
+      IWasmModule|IWasmModuleAsync,
+      Map<
+         number,
+         T
+      >
+   > = new WeakMap();
+
+   constructor() {
+
+   }
+
+   registerEvent(mod: IWasmModule|IWasmModuleAsync, eventType: T, eventID: number, extraPtr: number) {
+      
+      let eventTypeHandlers = this.events.get(eventType);
+      if (eventTypeHandlers == undefined) {
+         eventTypeHandlers = new Map();
+         this.events.set(eventType, eventTypeHandlers);
+      } 
+
+      let eventModHandlers = eventTypeHandlers.get(mod.id);
+      if (eventModHandlers == undefined) {
+         eventModHandlers = [
+            new WeakRef(mod),
+            new Map()
+         ];
+         eventTypeHandlers.set(mod.id, eventModHandlers);
+      }
+      let eventsByID = eventModHandlers[1];
+
+      let linearIDs = this.linearlyMappedIDs.get(mod);
+      if (linearIDs == undefined) {
+         linearIDs = new Map();
+         this.linearlyMappedIDs.set(mod, linearIDs);
+      }
+
+      if (eventsByID.has(eventID)) throw new Error("internal error!");
+      if (linearIDs.has(eventID)) throw new Error("internal error!");
+
+      eventsByID.set(eventID, extraPtr);
+      linearIDs.set(eventID, eventType);
+
+      return eventID;
+   }
+
+   unregisterEvent(mod: IWasmModule|IWasmModuleAsync, eventID: number) {
+      const linearIds = this.linearlyMappedIDs.get(mod);
+      if (linearIds == undefined) return false;
+
+      const eventType = linearIds.get(eventID);
+      if (eventType == undefined) return false;
+      linearIds.delete(eventID);
+
+      const eventTypeHandlers = this.events.get(eventType);
+      if (eventTypeHandlers == undefined) throw new Error("internal error!");
+
+      const eventModHandlers = eventTypeHandlers.get(mod.id);
+      if (eventModHandlers == undefined) throw new Error("internal error!");
+
+      const eventsByID = eventModHandlers[1];
+
+      const success = eventsByID.delete(eventID);
+      if (!success) throw new Error("internal error!");
+
+      return true;
+   }
+
+   unregisterAllEvents(mod: IWasmModule|IWasmModuleAsync) {
+      for (const [, eventTypeHandlers] of this.events) {
+         eventTypeHandlers.delete(mod.id);
+      }
+      this.linearlyMappedIDs.delete(mod);
+   }
+
+   runEvent(eventType: T, ...args: number[]) {
+      const eventTypeHandlers = this.events.get(eventType);
+      if (eventTypeHandlers == undefined) return;
+
+      const idsToRemove = [];
+      for (const [modID, [mod, eventsByID]] of eventTypeHandlers) {
+         const derefMod = mod.deref();
+         if (derefMod == undefined) {
+            idsToRemove.push(modID);
+            continue;
+         }
+         for (const [eventID, extraPtr] of eventsByID) {
+            derefMod.postEvent(eventID, extraPtr, ...args);
+         }
+      }
+   }
 }

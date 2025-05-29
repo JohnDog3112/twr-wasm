@@ -716,18 +716,18 @@ long d2d_doesidexist(struct d2d_draw_seq* ds, long id) {
 }
 
 
-void d2d_register_event(enum D2DEvent eventType, int eventID) {
-   d2d_register_event_with_con(eventType, eventID, twr_get_std2d_con());
+void d2d_register_event(enum D2DEvent eventType, int eventID, void* extraPtr) {
+   d2d_register_event_with_con(eventType, eventID, extraPtr, twr_get_std2d_con());
 }
-void d2d_register_event_with_con(enum D2DEvent eventType, int eventID, twr_ioconsole_t * con) {
-   twrRegisterEvent(__twr_get_jsid(con), (int)eventType, eventID);
+void d2d_register_event_with_con(enum D2DEvent eventType, int eventID, void* extraPtr, twr_ioconsole_t * con) {
+   twrRegisterEvent(__twr_get_jsid(con), (int)eventType, eventID, extraPtr);
 }
 
-void d2d_unregister_event(enum D2DEvent eventType, int eventID) {
-   d2d_unregister_event_with_con(eventType, eventID, twr_get_std2d_con());
+void d2d_unregister_event(int eventID) {
+   d2d_unregister_event_with_con(eventID, twr_get_std2d_con());
 }
-void d2d_unregister_event_with_con(enum D2DEvent eventType, int eventID, twr_ioconsole_t * con) {
-   twrUnregisterEvent(__twr_get_jsid(con), (int)eventType, eventID);
+void d2d_unregister_event_with_con(int eventID, twr_ioconsole_t * con) {
+   twrUnregisterEvent(__twr_get_jsid(con), eventID);
 }
 void d2d_unregister_all_events() {
    d2d_unregister_all_events_with_con(twr_get_std2d_con());

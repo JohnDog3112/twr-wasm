@@ -42,26 +42,26 @@ extern "C" {
 
       MOUSE_MOVE_EVENT_ID = twr_register_callback("menuMouseMoveCallback");
       // register_mouse_move_event(MOUSE_MOVE_EVENT_ID, "twr_d2dcanvas", true);
-      d2d_register_event(D2D_MOUSE_MOVE, MOUSE_MOVE_EVENT_ID);
+      d2d_register_event(D2D_MOUSE_MOVE, MOUSE_MOVE_EVENT_ID, NULL);
 
       MOUSE_PRESS_EVENT_ID = twr_register_callback("menuMousePressCallback");
       // register_mouse_press_event(MOUSE_PRESS_EVENT_ID, "twr_d2dcanvas", true);
-      d2d_register_event(D2D_MOUSE_DOWN, MOUSE_PRESS_EVENT_ID);
+      d2d_register_event(D2D_MOUSE_DOWN, MOUSE_PRESS_EVENT_ID, NULL);
 
       ANIMATION_LOOP_EVENT_ID = twr_register_callback("menuAnimationLoopCallback");
       // register_animation_loop(ANIMATION_LOOP_EVENT_ID);
-      d2d_register_event(D2D_ANIMATION_FRAME, ANIMATION_LOOP_EVENT_ID);
+      d2d_register_event(D2D_ANIMATION_FRAME, ANIMATION_LOOP_EVENT_ID, NULL);
 
       KEY_DOWN_EVENT_ID = twr_register_callback("menuKeyDownCallback");
       // register_key_down_event(KEY_DOWN_EVENT_ID);
-      d2d_register_event(D2D_KEY_DOWN, KEY_DOWN_EVENT_ID);
+      d2d_register_event(D2D_KEY_DOWN, KEY_DOWN_EVENT_ID, NULL);
 
       KEY_UP_EVENT_ID = twr_register_callback("menuKeyUpCallback");
       // register_key_up_event(KEY_UP_EVENT_ID);
-      d2d_register_event(D2D_KEY_UP, KEY_UP_EVENT_ID);
+      d2d_register_event(D2D_KEY_UP, KEY_UP_EVENT_ID, NULL);
 
       CANVAS_RESIZE_EVENT_ID = twr_register_callback("menuCanvasResizeCallback");
-      d2d_register_event(D2D_CANVAS_RESIZE, CANVAS_RESIZE_EVENT_ID);
+      d2d_register_event(D2D_CANVAS_RESIZE, CANVAS_RESIZE_EVENT_ID, NULL);
 
 
       menu.setUseURL(useURL);
@@ -70,32 +70,32 @@ extern "C" {
    }
 
    __attribute__((export_name("menuMouseMoveCallback")))
-   void mouse_move_callback(int event_id, long x, long y) {
+   void mouse_move_callback(int event_id, void* extraPtr, long x, long y) {
       menu.mouseMoveEvent(x, y);
    }
 
    __attribute__((export_name("menuMousePressCallback")))
-   void mouse_press_callback(int event_id, long x, long y, long button) {
+   void mouse_press_callback(int event_id, void* extraPtr, long x, long y, long button) {
       menu.mousePressEvent(x, y);
    }
 
    __attribute__((export_name("menuAnimationLoopCallback")))
-   void menu_animation_loop_callback(int event_id, long delta) {
+   void menu_animation_loop_callback(int event_id, void* extraPtr, long delta) {
       menu.render(delta);
    }
 
    __attribute__((export_name("menuKeyDownCallback")))
-   void menu_key_down_callback(int event_id, long keycode) {
+   void menu_key_down_callback(int event_id, void* extraPtr, long keycode) {
       menu.keyDownEvent(keycode);
    }
 
    __attribute__((export_name("menuKeyUpCallback")))
-   void menu_key_up_callback(int event_id, long keycode) {
+   void menu_key_up_callback(int event_id, void* extraPtr, long keycode) {
       menu.keyUpEvent(keycode);
    }
 
    __attribute__((export_name("menuCanvasResizeCallback")))
-   void menu_canvas_resize_callback(int event_id, int width, int height) {
+   void menu_canvas_resize_callback(int event_id, void* extraPtr, int width, int height) {
       menu.setBounds(width, height);
    }
 

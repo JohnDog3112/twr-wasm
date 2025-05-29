@@ -300,11 +300,11 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, ICons
    twrConGetProp(callingMod: IWasmModule | IWasmModuleAsync, pn: number) {
       return this.getProp(callingMod.getString(pn));
    }
-   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number) {
-
+   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number, extraPtr: number) {
+      return 0;
    }
-   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number) {
-
+   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventID: number) {
+      return false;
    }
    twrUnregisterAllEvents(callingMod: IWasmModuleAsync | IWasmModule) {
 

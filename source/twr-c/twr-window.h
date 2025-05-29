@@ -278,8 +278,8 @@ char* twr_window_get_title(twr_ioconsole_t* window);
 enum TwrWindowEvents {
    TWR_WINDOW_RESIZE_EVENT
 };
-void twr_window_register_event(twr_ioconsole_t* window, enum TwrWindowEvents event, int event_id);
-void twr_window_unregister_event(twr_ioconsole_t* window, enum TwrWindowEvents event, int event_id);
+void twr_window_register_event(twr_ioconsole_t* window, enum TwrWindowEvents event, int event_id, void* extra_ptr);
+void twr_window_unregister_event(twr_ioconsole_t* window, int event_id);
 void twr_window_unregiser_all_events(twr_ioconsole_t* window);
 
 #ifdef __cplusplus

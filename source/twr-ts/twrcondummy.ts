@@ -148,10 +148,10 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       throw new Error("internal error");
    }
 
-   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number)  {
+   twrRegisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number, extraPtr: number): number  {
       throw new Error("internal error");
    }
-   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventType: number, eventID: number)  {
+   twrUnregisterEvent(callingMod: IWasmModuleAsync | IWasmModule, eventID: number): boolean  {
       throw new Error("internal error");
    }
    twrUnregisterAllEvents(callingMod: IWasmModuleAsync | IWasmModule)  {

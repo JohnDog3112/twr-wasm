@@ -64,9 +64,39 @@ struct IconClickActionOpenApp {
    const char* app_title;
    int bind_window;
 };
-struct IconClickActionPopup {
 
+struct PopupInfoPtr {
+   struct PopupWindowInformation* popup_window;
+   struct IconClickActionPopup* icon;
 };
+struct PopupWindowInformation {
+   long id;
+   struct PopupInfoPtr info_ptr;
+   twr_ioconsole_t* window;
+   twr_ioconsole_t* canvas;
+
+   struct dVec2 canvas_size;
+   void* extra_info;
+};
+
+struct IconClickActionPopup {
+   const char* title;
+
+   struct PopupWindowInformation* popups;
+   size_t arr_len;
+   size_t arr_alloc_len;
+
+   void (*animation_event)();
+   void (*cleanup)();
+   void (*mouse_move)();
+   void (*mouse_click)();
+   void (*mouse_double_click)();
+
+   void (*key_down)();
+   void (*key_up)();
+   void (*canvas_resize)();
+};
+
 struct IconClickAction {
    enum IconClickActionType type;
    union {
@@ -214,19 +244,24 @@ void init_icon(struct d2d_draw_seq* ds, struct Icon* icon, const char* image_src
 
 __attribute__((export_name("init")))
 int init(int is_async) {
+   printf("a\n");
    if (global_state.initialized) {
       return FALSE;
    }
    global_state.initialized = TRUE;
    global_state.is_async = is_async;
 
+   printf("b\n");
    global_state.screen = twr_get_console("screen");
 
+   printf("c\n");
    struct MainWindowInfo* main_window_info = &global_state.main_window_info;
    main_window_info->window = twr_screen_spawn_window(global_state.screen, "screen spawner");
+   printf("d\n");
 
    main_window_info->canvas = twr_window_get_draw_canvas(main_window_info->window);
    twr_set_std2d_con(main_window_info->canvas);
+   printf("e\n");
 
    main_window_info->events = (struct MainWindowEvents) {
       .animation_event_id = twr_register_callback("mainWindowAnimationLoop"),
@@ -237,36 +272,45 @@ int init(int is_async) {
 
       .canvas_resize_event_id = twr_register_callback("mainWindowDrawCanvasResize"),
    };
+   printf("f\n");
+
    d2d_register_event_with_con(
       D2D_ANIMATION_FRAME,
       main_window_info->events.animation_event_id,
+      NULL,
       main_window_info->canvas
    );
    d2d_register_event_with_con(
       D2D_MOUSE_MOVE,
       main_window_info->events.mouse_move_event_id,
+      NULL,
       main_window_info->canvas
    );
    d2d_register_event_with_con(
       D2D_MOUSE_CLICK,
       main_window_info->events.mouse_click_event_id,
+      NULL,
       main_window_info->canvas
    );
    d2d_register_event_with_con(
       D2D_MOUSE_DBLCLICK,
       main_window_info->events.mouse_double_click_event_id,
+      NULL,
       main_window_info->canvas
    );
    d2d_register_event_with_con(
       D2D_KEY_DOWN,
       main_window_info->events.keyboard_press_event_id,
+      NULL,
       main_window_info->canvas
    );
    d2d_register_event_with_con(
       D2D_CANVAS_RESIZE,
       main_window_info->events.canvas_resize_event_id,
+      NULL,
       main_window_info->canvas
    );
+   printf("g\n");
 
    main_window_info->canvas_size = (struct dVec2){
       .x = io_get_prop(main_window_info->canvas, "canvasWidth"),
@@ -330,7 +374,7 @@ int init(int is_async) {
 }
 
 __attribute__((export_name("mainWindowDrawCanvasResize")))
-void main_window_draw_canvas_resize(int event_id, int width, int height) {
+void main_window_draw_canvas_resize(int event_id, void* extraPtr, int width, int height) {
    global_state.main_window_info.canvas_size = (struct dVec2){
       .x = width,
       .y = height
@@ -338,7 +382,7 @@ void main_window_draw_canvas_resize(int event_id, int width, int height) {
 }
 
 __attribute__((export_name("iconImageLoadEvent")))
-void icon_image_load_event(int event_id, int success, struct Icon* icon) {
+void icon_image_load_event(int event_id, void* extraPtr, int success, struct Icon* icon) {
    if (success) {
       icon->initialized = 1;
    } else {
@@ -346,7 +390,7 @@ void icon_image_load_event(int event_id, int success, struct Icon* icon) {
    }
 }
 __attribute__((export_name("mainWindowAnimationLoop")))
-void main_window_animation_loop(int event_id, int delta_t) {
+void main_window_animation_loop(int event_id, void* extraPtr, int delta_t) {
    struct d2d_draw_seq* ds = d2d_start_draw_sequence_with_con(100, global_state.main_window_info.canvas);
    struct MainWindowInfo* main_window_info = &global_state.main_window_info;
    struct dVec2 canvas_size = main_window_info->canvas_size;
@@ -396,7 +440,7 @@ __attribute__((import_name("spawnApplication")))
 void spawn_application(const char* title, const char* path, const char* init_func, const long* init_args, size_t init_args_len, int bind_window);
 
 __attribute__((export_name("mainWindowMouseEvent")))
-void main_window_mouse_event(int event_id, int mouse_x, int mouse_y, int button) {
+void main_window_mouse_event(int event_id, void* extraPtr, int mouse_x, int mouse_y, int button) {
    int row = 0;
    int column = 0;
    for (size_t i = 0; i < NUM_ICONS; i++) {
@@ -438,6 +482,10 @@ void main_window_mouse_event(int event_id, int mouse_x, int mouse_y, int button)
 
             case ICON_ACTION_OPEN_POPUP:
                //TODO
+               twr_screen_spawn_window(
+                  global_state.screen,
+                  "popup"
+               );
             break;
          }
       }
@@ -445,6 +493,16 @@ void main_window_mouse_event(int event_id, int mouse_x, int mouse_y, int button)
 }
 
 __attribute__((export_name("mainWindowKeyboardEvent")))
-void main_window_keyboard_event(int event_id, int key) {
+void main_window_keyboard_event(int event_id, void* extraPtr, int key) {
 
+}
+
+__attribute__((export_name("popupWindowAnimationEvent")))
+void popup_window_animation_event(int event_id, void* extraPtr, int deltaT) {
+   for (size_t i = 0; i < NUM_ICONS; i++) {
+      struct Icon* icon = &global_state.icons[i];
+      if (icon->action.type == ICON_ACTION_OPEN_POPUP) {
+
+      }
+   }
 }

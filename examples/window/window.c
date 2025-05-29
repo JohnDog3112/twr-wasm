@@ -143,30 +143,30 @@ void init() {
    printf("canvas size: %ld, %ld\n", canvas_width, canvas_height);
 
    int ANIMATION_EVENT = twr_register_callback("animationFrame");
-   d2d_register_event(D2D_ANIMATION_FRAME, ANIMATION_EVENT);
+   d2d_register_event(D2D_ANIMATION_FRAME, ANIMATION_EVENT, NULL);
 
 
 
    int MOUSE_MOVE_EVENT = twr_register_callback("mouseMoveHandler");
-   d2d_register_event(D2D_MOUSE_MOVE, MOUSE_MOVE_EVENT);
+   d2d_register_event(D2D_MOUSE_MOVE, MOUSE_MOVE_EVENT, NULL);
    mouse_event_ids[MOUSE_EVENT_MOVE] = MOUSE_MOVE_EVENT;
 
    int MOUSE_LEFT_CLICK_EVENT = twr_register_callback("mouseMoveHandler");
-   d2d_register_event(D2D_MOUSE_CLICK, MOUSE_LEFT_CLICK_EVENT);
+   d2d_register_event(D2D_MOUSE_CLICK, MOUSE_LEFT_CLICK_EVENT, NULL);
    mouse_event_ids[MOUSE_EVENT_LEFT_CLICK] = MOUSE_LEFT_CLICK_EVENT;
 
    int MOUSE_DBL_CLICK_EVENT = twr_register_callback("mouseMoveHandler");
-   d2d_register_event(D2D_MOUSE_DBLCLICK, MOUSE_DBL_CLICK_EVENT);
+   d2d_register_event(D2D_MOUSE_DBLCLICK, MOUSE_DBL_CLICK_EVENT, NULL);
    mouse_event_ids[MOUSE_EVENT_DOUBLE_CLICK] = MOUSE_DBL_CLICK_EVENT;
 
    int MOUSE_CLICKED_OFF_EVENT = twr_register_callback("mouseClickedOffHandler");
-   d2d_register_event(D2D_MOUSE_CLICKED_OFF, MOUSE_CLICKED_OFF_EVENT);
+   d2d_register_event(D2D_MOUSE_CLICKED_OFF, MOUSE_CLICKED_OFF_EVENT, NULL);
 
    int KEY_PRESS_EVENT = twr_register_callback("keyEventHandler");
-   d2d_register_event(D2D_KEY_DOWN, KEY_PRESS_EVENT);
+   d2d_register_event(D2D_KEY_DOWN, KEY_PRESS_EVENT, NULL);
 
    int WINDOW_RESIZE_EVENT = twr_register_callback("windowResizeHandler");
-   twr_window_register_event(window_con, TWR_WINDOW_RESIZE_EVENT, WINDOW_RESIZE_EVENT);
+   twr_window_register_event(window_con, TWR_WINDOW_RESIZE_EVENT, WINDOW_RESIZE_EVENT, NULL);
 
 
 
@@ -208,7 +208,7 @@ void force_square_into_bounds() {
    }
 }
 __attribute__((export_name("windowResizeHandler")))
-void window_resize_handler(int event_id, long width, long height) {
+void window_resize_handler(int event_id, void* extraPtr, long width, long height) {
    canvas_width = io_get_prop(canvas_con, "canvasWidth");
    canvas_height = io_get_prop(canvas_con, "canvasHeight");
 
@@ -645,7 +645,7 @@ void box_border_changed(int event_id, void* _, int new_state) {
 
 
 __attribute__((export_name("animationFrame")))
-void animation_frame(int id, int delta) {
+void animation_frame(int id, void* extraPtr, int delta) {
    struct d2d_draw_seq* ds = d2d_start_draw_sequence(100);
 
    d2d_clearrect(ds, 0, 0, 1000, 1000);
@@ -811,7 +811,7 @@ void animation_frame(int id, int delta) {
 }
 
 __attribute__((export_name("mouseMoveHandler")))
-void mouse_move_handler(int id, int x, int y, int button) {
+void mouse_move_handler(int id, void* extraPtr, int x, int y, int button) {
    int m_x = (canvas_width - prop_menu_data.width)/2;
    int m_y = (canvas_height - prop_menu_data.height)/2;
 
@@ -836,12 +836,12 @@ void mouse_move_handler(int id, int x, int y, int button) {
    force_square_into_bounds();
 }
 __attribute__((export_name("mouseClickedOffHandler")))
-void mouse_clicked_off_handler(int id, int x, int y, int button) {
+void mouse_clicked_off_handler(int id, void* extraPtr, int x, int y, int button) {
    prop_menu_data.state = PROP_MENU_UNOPENED;
 }
 
 __attribute__((export_name("keyEventHandler")))
-void key_event_handler(int id, int key) {
+void key_event_handler(int id, void* extraPtr, int key) {
    printf("pressed key: %d\n", key);
    if (prop_menu_data.state == PROP_MENU_UNOPENED)
       return;
