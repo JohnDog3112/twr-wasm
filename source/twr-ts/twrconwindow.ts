@@ -1737,6 +1737,7 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       twrUnregisterAllEvents: {},
       twrWindowSetTitle: {},
       twrWindowGetTitle: {isAsyncFunction: true},
+      twrWindowRegisterCloseHandler: {},
    };
 
    // every library should have this line
@@ -2819,8 +2820,24 @@ export class twrConsoleWindow extends twrLibrary implements ICanvasEvents, ICons
       }).bind(this));
    }
 
+   private closeHandlers: ((a: twrConsoleWindow) => Promise<void>)[] = [];
+   jsRegisterCloseHandler(handler: (a: twrConsoleWindow) => Promise<void>) {
+      this.closeHandlers.push(handler);
+   }
+   twrWindowRegisterCloseHandler(mod: IWasmModule|IWasmModuleAsync, funcNamePtr: number, extraPtr: number) {
+      const funcName = mod.getString(funcNamePtr);
+      const weakMod = new WeakRef(mod);
+      this.closeHandlers.push(async () => {
+         const mod = weakMod.deref();
+         if (mod != undefined) {
+            await mod.callC([funcName, extraPtr]);
+         }
+      });
+   }
    async handleClose() {
-      
+      for (const handler of this.closeHandlers) {
+         await handler(this);
+      }
    }
 
    jsSetTitle(title: string) {

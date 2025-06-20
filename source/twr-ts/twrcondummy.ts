@@ -51,6 +51,9 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       twrScreenSetWindowLayer: {},
       twrScreenMoveWindow: {},
       twrScreenCloseWindow: {},
+      twrWindowRegisterCloseHandler: {},
+
+      twrConSetMouseCursor: {},
    };
 
    libSourcePath = new URL(import.meta.url).pathname;
@@ -215,6 +218,14 @@ export default class twrConsoleDummy extends twrLibrary implements IConsoleStrea
       throw new Error("internal error");
    }
    twrScreenCloseWindow(mod: IWasmModule | IWasmModuleAsync, windowID: number) {
+      throw new Error("internal error");
+   }
+
+   twrWindowRegisterCloseHandler(mod: IWasmModule | IWasmModuleAsync, funcNamePtr: number, extraPtr: number) {
+      throw new Error("internal error");
+   }
+
+   twrConSetMouseCursor(mod: IWasmModule | IWasmModuleAsync, cursorSrcPtr: number) {
       throw new Error("internal error");
    }
 }

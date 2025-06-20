@@ -282,6 +282,9 @@ void twr_window_register_event(twr_ioconsole_t* window, enum TwrWindowEvents eve
 void twr_window_unregister_event(twr_ioconsole_t* window, int event_id);
 void twr_window_unregiser_all_events(twr_ioconsole_t* window);
 
+__attribute__((import_name("twrWindowRegisterCloseHandler"))) void twrWindowRegisterCloseHandler(int jsid, const char* func_name, void* extra_ptr);
+void twr_window_register_close_handler(twr_ioconsole_t* window, const char* func_name, void* extra_ptr);
+
 #ifdef __cplusplus
 }
 #endif

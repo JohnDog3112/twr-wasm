@@ -735,3 +735,10 @@ void d2d_unregister_all_events() {
 void d2d_unregister_all_events_with_con(twr_ioconsole_t * con) {
    twrUnregisterAllEvents(__twr_get_jsid(con));
 }
+
+void d2d_set_mouse_cursor(const char* cursor_src) {
+   d2d_set_mouse_cursor_with_con(cursor_src, twr_get_std2d_con);
+}
+void d2d_set_mouse_cursor_with_con(const char* cursor_src, twr_ioconsole_t* con) {
+   twrConSetMouseCursor(__twr_get_jsid(con), cursor_src);
+}

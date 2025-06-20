@@ -926,7 +926,7 @@ export class twrConsoleScreen extends twrLibrary implements ICanvasEvents, ICons
          hoveredWindow.window.handleCanvasMouseEvent(event, n_x, n_y, button);
       }
       const lastWindow = this.lastHoveredWindow?.deref();
-      if (lastWindow != hoveredWindow) {
+      if (lastWindow?.window != hoveredWindow) {
          if (lastWindow != undefined) {
             lastWindow.window.window.handleCanvasMouseEvent(
                CanvasEventTypes.MOUSE_LEAVE,

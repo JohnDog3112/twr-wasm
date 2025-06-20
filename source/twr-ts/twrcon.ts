@@ -95,6 +95,7 @@ export interface IConsoleDrawable {
    twrConDrawSeq: (mod:IWasmModuleAsync|IWasmModule, ds:number)=>void,
    twrConLoadImage_async: (mod:IWasmModuleAsync, urlPtr: number, id: number)=>Promise<number>,
    twrConLoadImageSync: (mod: IWasmModule | IWasmModuleAsync, urlPtr: number, id: number, eventID: number, extraPtr?: number)=>void,
+   twrConSetMouseCursor: (mod: IWasmModule | IWasmModuleAsync, cursorSrcPtr: number)=>void,
 }
 
 export interface IConsoleEvents {
@@ -126,6 +127,7 @@ export interface IConsoleWindow extends IConsoleBase, IConsoleEvents {
    twrWindowMenuGetProp: (mod: IWasmModule, propNamePtr: number) => number,
    twrWindowSetTitle: (mod: IWasmModule | IWasmModuleAsync, titlePtr: number) => void,
    twrWindowGetTitle: (mod: IWasmModule) => number,
+   twrWindowRegisterCloseHandler: (mod: IWasmModule|IWasmModuleAsync, funcNamePtr: number, extraPtr: number) => void,
 }
 export interface IConsoleScreen extends IConsoleBase, IConsoleEvents {
    twrScreenSpawnWindow: (mod: IWasmModule | IWasmModuleAsync, titlePtr?: number) => number;

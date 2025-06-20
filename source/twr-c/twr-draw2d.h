@@ -438,6 +438,7 @@ struct d2d_2d_matrix {
 __attribute__((import_name("twrConDrawSeq"))) void twrConDrawSeq(int jsid, struct d2d_draw_seq *);
 __attribute__((import_name("twrConLoadImage"))) bool twrConLoadImage(int jsid, const char* url, long id);
 __attribute__((import_name("twrConLoadImageSync"))) void twrConLoadImageSync(int jsid, const char* url, long id, int event_id, void* extra_ptr);
+__attribute__((import_name("twrConSetMouseCursor"))) void twrConSetMouseCursor(int jsid, const char* cursor_src);
 enum D2DEvent {
    D2D_KEY_DOWN,
    D2D_KEY_UP,
@@ -546,6 +547,8 @@ void d2d_unregister_event_with_con(int eventID, twr_ioconsole_t * con);
 void d2d_unregister_all_events();
 void d2d_unregister_all_events_with_con(twr_ioconsole_t * con);
 
+void d2d_set_mouse_cursor(const char* cursor_src);
+void d2d_set_mouse_cursor_with_con(const char* cursor_src, twr_ioconsole_t* con);
 #ifdef __cplusplus
 }
 #endif

@@ -316,3 +316,7 @@ void twr_window_unregister_event(twr_ioconsole_t* window, int event_id) {
 void twr_window_unregiser_all_events(twr_ioconsole_t* window) {
    twrUnregisterAllEvents(__twr_get_jsid(window));
 }
+
+void twr_window_register_close_handler(twr_ioconsole_t* window, const char* func_name, void* extra_ptr) {
+   twrWindowRegisterCloseHandler(__twr_get_jsid(window), func_name, extra_ptr);
+}

@@ -106,6 +106,7 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
       twrRegisterEvent:{},
       twrUnregisterEvent:{},
       twrUnregisterAllEvents:{},
+      twrConSetMouseCursor: {},
    };
 
    libSourcePath = new URL(import.meta.url).pathname;
@@ -278,9 +279,14 @@ export class twrConsoleCanvas extends twrLibrary implements IConsoleCanvas, ICan
             if (extraPtr != undefined) {
                mod.postEvent(eventID, val, extraPtr);
             } else {
-               mod.postEvent(eventID, val);
+               mod.postEvent(eventID, val, 0);
             }
          });
+   }
+
+   twrConSetMouseCursor(mod: IWasmModule | IWasmModuleAsync, cursorSrcPtr: number) {
+      const cursorSrc = mod.getString(cursorSrcPtr);
+      this.setMouseCursor(cursorSrc);
    }
 
    /* see draw2d.h for structs that match */
